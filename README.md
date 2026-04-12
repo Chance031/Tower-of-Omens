@@ -23,11 +23,19 @@ C++로 만드는 콘솔 로그라이크 RPG 프로젝트
 
 ## 개발 일지
 
+![개발 일지](docs/gantt.svg)
+
 <!-- LOG_START -->
-| 날짜 | 섹션 | 작업 내용 |
-|------|------|-----------|
-| 2026-04-12 | 초기 설정 | 레포 생성, README·gitignore·MIT License 추가 |
-| 2026-04-12 | 초기 설정 | 플로우차트(draw.io) 및 솔루션 파일(Tower-of-Omens.slnx) 추가 |
+| 날짜 | 타입 | 섹션 | 작업 내용 |
+|------|------|------|-----------|
+| 2026-04-12 | chore | 초기 설정 | 레포 생성, README·gitignore·MIT License 추가 |
+| 2026-04-12 | chore | 초기 설정 | 플로우차트(draw.io) 및 솔루션 파일(.slnx) 추가 |
+| 2026-04-12 | chore | 자동화 | GitHub Actions 워크플로 및 update_gantt.py 추가 |
+| 2026-04-12 | feat | 엔진 | ConsoleRenderer, MenuInput 구현 (ANSI 렌더링, 키 입력) |
+| 2026-04-12 | feat | 게임 | Game, TitleScreen, JobSelectScreen, FloorLoopScreen, MessageScreen 구현 |
+| 2026-04-12 | fix | 구조 | 파일 구조 정리 (engine/platform, game/screens 레이어 분리) |
+| 2026-04-12 | fix | 게임 | Game.cpp에서 Screen 클래스 분리 리팩토링 |
+| 2026-04-12 | fix | 전체 | 코드 리팩토링 (MenuInput 규약, FloorLoopScreen 반환 타입 등) |
 <!-- LOG_END -->
 
 ---
