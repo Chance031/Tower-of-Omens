@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Tower-of-Omens/Tower-of-Omens.vcxproj" />
+  <Project Path="Tower-of-Omens/Tower-of-Omens.vcxproj" Id="ed260c7c-cc58-4507-af41-91793ead573b" />
 </Solution>
