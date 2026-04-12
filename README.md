@@ -83,11 +83,3 @@ Visual Studio 2022에서 `Tower-of-Omens/Tower-of-Omens.slnx` 열고 빌드 후 
 | 소비 | 회복 포션, 마나 포션 |
 | 장비 | 무기, 방어구 (전사/마법사 전용) |
 | 스킬 | 직업별 액티브·패시브 |
-
----
-
-## 관련 프로젝트
-
-| 레포 | 설명 |
-|------|------|
-| [Tetris-cpp](https://github.com/Chance031/Tetris-cpp) | 콘솔 테트리스 C++ |
