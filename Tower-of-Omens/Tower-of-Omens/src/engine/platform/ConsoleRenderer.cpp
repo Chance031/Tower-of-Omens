@@ -4,24 +4,58 @@
 
 #include <iostream>
 #include <sstream>
+#include <string>
+#include <vector>
 
 namespace
 {
 constexpr unsigned long kEnableVirtualTerminalProcessing = 0x0004;
+
+std::vector<std::string> SplitLines(const std::string& text)
+{
+    std::vector<std::string> lines;
+    std::stringstream stream(text);
+    std::string line;
+
+    while (std::getline(stream, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+        {
+            line.pop_back();
+        }
+        lines.push_back(line);
+    }
+
+    if (!text.empty() && text.back() == '\n')
+    {
+        lines.push_back("");
+    }
+
+    if (lines.empty())
+    {
+        lines.push_back("");
+    }
+
+    return lines;
+}
 }
 
+// 콘솔 렌더러를 기본 상태로 생성한다.
 ConsoleRenderer::ConsoleRenderer()
     : m_stdoutHandle(INVALID_HANDLE_VALUE),
       m_originalMode(0),
-      m_isInitialized(false)
+      m_isInitialized(false),
+      m_lastRenderedLineCount(0)
 {
 }
 
+// 렌더러가 사용한 콘솔 상태를 정리한다.
 ConsoleRenderer::~ConsoleRenderer()
 {
     Shutdown();
 }
 
+// ANSI 제어 시퀀스를 사용할 수 있도록 콘솔을 초기화한다.
 bool ConsoleRenderer::Initialize()
 {
     if (m_isInitialized)
@@ -54,6 +88,7 @@ bool ConsoleRenderer::Initialize()
     return true;
 }
 
+// 초기화 과정에서 바꾼 콘솔 상태를 원래대로 되돌린다.
 void ConsoleRenderer::Shutdown()
 {
     if (!m_isInitialized)
@@ -65,14 +100,36 @@ void ConsoleRenderer::Shutdown()
     std::cout.flush();
     SetConsoleMode(static_cast<HANDLE>(m_stdoutHandle), m_originalMode);
     m_isInitialized = false;
+    m_lastRenderedLineCount = 0;
 }
 
+// 전달받은 프레임 문자열을 현재 콘솔 화면에 출력한다.
 void ConsoleRenderer::Present(const std::string& frame) const
 {
-    std::cout << "\x1B[2J\x1B[H\x1B[?25l" << frame;
+    const std::vector<std::string> lines = SplitLines(frame);
+
+    std::cout << "\x1B[H\x1B[?25l";
+
+    for (int i = 0; i < static_cast<int>(lines.size()); ++i)
+    {
+        std::cout << "\x1B[2K" << lines[i];
+        if (i + 1 < static_cast<int>(lines.size()))
+        {
+            std::cout << '\n';
+        }
+    }
+
+    for (int i = static_cast<int>(lines.size()); i < m_lastRenderedLineCount; ++i)
+    {
+        std::cout << "\n\x1B[2K";
+    }
+
+    std::cout << "\x1B[H";
     std::cout.flush();
+    m_lastRenderedLineCount = static_cast<int>(lines.size());
 }
 
+// 선택 메뉴 화면을 한 프레임 문자열로 조합한다.
 std::string ConsoleRenderer::ComposeMenuFrame(
     const std::string& title,
     const std::string& body,

@@ -23,4 +23,5 @@ private:
     void* m_stdoutHandle;
     unsigned long m_originalMode;
     bool m_isInitialized;
+    mutable int m_lastRenderedLineCount;
 };

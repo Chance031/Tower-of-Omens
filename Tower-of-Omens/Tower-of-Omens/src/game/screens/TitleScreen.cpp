@@ -2,6 +2,7 @@
 
 #include <vector>
 
+// 타이틀 화면을 표시하고 다음 진행 여부를 결정한다.
 bool TitleScreen::Run(const ConsoleRenderer& renderer, const MenuInput& input) const
 {
     const std::vector<std::string> options = {"New Game", "Exit"};
@@ -15,7 +16,7 @@ bool TitleScreen::Run(const ConsoleRenderer& renderer, const MenuInput& input) c
             options,
             selected));
 
-        const int result = input.ReadMenuSelection(static_cast<int>(options.size()));
+        const int result = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
         if (result > 0)
         {
             return result == 1;

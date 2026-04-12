@@ -2,6 +2,7 @@
 
 #include <vector>
 
+// 직업 선택 화면을 표시하고 선택 결과를 돌려준다.
 std::optional<JobClass> JobSelectScreen::Run(const ConsoleRenderer& renderer, const MenuInput& input) const
 {
     const std::vector<std::string> options = {"Warrior", "Mage"};
@@ -15,7 +16,7 @@ std::optional<JobClass> JobSelectScreen::Run(const ConsoleRenderer& renderer, co
             options,
             selected));
 
-        const int result = input.ReadMenuSelection(static_cast<int>(options.size()));
+        const int result = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
         if (result == 0)
         {
             return std::nullopt;

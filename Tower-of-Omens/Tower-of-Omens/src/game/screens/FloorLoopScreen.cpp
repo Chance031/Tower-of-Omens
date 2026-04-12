@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 
+// 층 진행 화면을 표시하고 다음 이동 방향을 결정한다.
 bool FloorLoopScreen::Run(const Player& player, const ConsoleRenderer& renderer, const MenuInput& input) const
 {
     const std::vector<std::string> options = {"Back to Title", "Exit"};
@@ -18,7 +19,7 @@ bool FloorLoopScreen::Run(const Player& player, const ConsoleRenderer& renderer,
     {
         renderer.Present(renderer.ComposeMenuFrame("Floor Loop", body.str(), options, selected));
 
-        const int result = input.ReadMenuSelection(static_cast<int>(options.size()));
+        const int result = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
         if (result == 0)
         {
             return true;

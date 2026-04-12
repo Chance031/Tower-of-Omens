@@ -2,9 +2,10 @@
 
 #include <conio.h>
 
-int MenuInput::ReadMenuSelection(int optionCount) const
+// 메뉴 선택에 필요한 키 입력을 읽어 결과로 변환한다.
+int MenuInput::ReadMenuSelection(int currentSelected, int optionCount) const
 {
-    int selected = 0;
+    int selected = currentSelected;
 
     for (;;)
     {
@@ -37,6 +38,7 @@ int MenuInput::ReadMenuSelection(int optionCount) const
     }
 }
 
+// 아무 키나 입력될 때까지 대기한다.
 void MenuInput::WaitForAnyKey() const
 {
     _getch();

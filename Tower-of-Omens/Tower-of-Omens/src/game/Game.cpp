@@ -1,21 +1,22 @@
 #include "game/Game.h"
 
+// 게임 객체를 기본 상태로 생성한다.
 Game::Game()
     : m_state(GameState::Title)
 {
 }
 
+// 게임 실행 전 필요한 초기 상태를 준비한다.
 void Game::Initialize()
 {
-    // 새 실행을 시작할 수 있도록 기본 상태로 되돌린다.
     m_state = GameState::Title;
     m_player = {};
     m_renderer.Initialize();
 }
 
+// 현재 게임 상태에 맞는 흐름을 실행한다.
 void Game::Run()
 {
-    // 현재 상위 상태에 맞는 처리 객체로 분기한다.
     while (m_state != GameState::Exit)
     {
         switch (m_state)
@@ -60,9 +61,9 @@ void Game::Run()
     m_renderer.Shutdown();
 }
 
+// 직업 선택 결과를 바탕으로 플레이어의 시작 능력치를 설정한다.
 void Game::StartRun(JobClass job)
 {
-    // 직업 선택 결과를 바탕으로 첫 층 진입용 기본 능력치를 세팅한다.
     m_player = {};
     m_player.job = job;
     m_player.name = JobName(job);
@@ -81,6 +82,7 @@ void Game::StartRun(JobClass job)
     }
 }
 
+// 직업 enum 값을 화면에 표시할 이름으로 변환한다.
 std::string Game::JobName(JobClass job) const
 {
     return (job == JobClass::Warrior) ? "Warrior" : "Mage";
