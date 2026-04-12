@@ -4,31 +4,42 @@ C++로 만드는 콘솔 로그라이크 RPG 프로젝트
 
 ## 기술 스택
 
-| 항목 | 내용 |
-|------|------|
-| 언어 | C++17 |
-| 빌드 | Visual Studio 2022 (.slnx) |
-| 플랫폼 | Windows 콘솔 앱 |
-| AI 보조 | Claude, ChatGPT |
+[![C++](https://img.shields.io/badge/C++-00599C?style=flat&logo=cplusplus&logoColor=white)](https://isocpp.org/)
+
+## 사용 AI
+
+[![Claude](https://img.shields.io/badge/Claude-D97757?style=flat&logo=anthropic&logoColor=white)](https://claude.ai/)
+[![ChatGPT](https://img.shields.io/badge/ChatGPT-74aa9c?style=flat&logo=openai&logoColor=white)](https://chat.openai.com/)
+
+---
 
 ## 설계 문서
 
 | 문서 | 설명 |
-|------|------|
-| [플로우차트 (draw.io로 열기)](Tower%20of%20Omens.drawio) | 게임 전체 상태 흐름, 전투 시퀀스, 아이템·보상 흐름, 상태 다이어그램 (8페이지) |
-| 개발 일지 | 아래 참고 |
-| 플레이 가이드 | — |
+|--------|--------|
+| [플로우차트 (draw.io로 열기)](https://app.diagrams.net/?url=https://raw.githubusercontent.com/Chance031/Tower-of-Omens/main/Tower%20of%20Omens.drawio) | 게임 전체 상태 흐름, 전투 시퀀스, 아이템·보상 흐름, 상태 다이어그램 (8페이지) |
 
-## 환경
+---
+
+## 개발 일지
+
+![개발 일지](docs/gantt.svg)
+
+---
+
+## 플레이 가이드
+
+### 환경
 
 - Windows (콘솔 앱)
 - ANSI 색상 지원 터미널 권장 (Windows Terminal 등)
-- Visual Studio 2022 (v17.x)
-- 플랫폼: x64 / x86
+- Visual Studio 2022 (v17.x), 플랫폼: x64 / x86
 
-## 빌드
+### 빌드
 
 Visual Studio 2022에서 `Tower-of-Omens/Tower-of-Omens.slnx` 열고 빌드 후 실행.
+
+---
 
 ## 게임 개요
 
@@ -68,12 +79,7 @@ Visual Studio 2022에서 `Tower-of-Omens/Tower-of-Omens.slnx` 열고 빌드 후 
 | 장비 | 무기, 방어구 (전사/마법사 전용) |
 | 스킬 | 직업별 액티브·패시브 |
 
-## 개발 일지
-
-| 날짜 | 내용 |
-|------|------|
-| 2026-04-12 | 레포 초기 설정 (README, .gitignore, MIT License) |
-| 2026-04-12 | 플로우차트 및 솔루션 파일 추가 (Tower-of-Omens.slnx) |
+---
 
 ## 관련 프로젝트
 
