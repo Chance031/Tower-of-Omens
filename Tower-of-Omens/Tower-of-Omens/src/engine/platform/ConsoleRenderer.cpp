@@ -1,8 +1,9 @@
-#include "ConsoleRenderer.h"
+#include "engine/platform/ConsoleRenderer.h"
 
 #include <Windows.h>
 
 #include <iostream>
+#include <sstream>
 
 namespace
 {
@@ -68,6 +69,33 @@ void ConsoleRenderer::Shutdown()
 
 void ConsoleRenderer::Present(const std::string& frame) const
 {
-    std::cout << "\x1B[H\x1B[?25l" << frame << "\x1B[0J";
+    std::cout << "\x1B[2J\x1B[H\x1B[?25l" << frame;
     std::cout.flush();
+}
+
+std::string ConsoleRenderer::ComposeMenuFrame(
+    const std::string& title,
+    const std::string& body,
+    const std::vector<std::string>& options,
+    int selectedIndex) const
+{
+    std::ostringstream frame;
+    frame << '[' << title << "]\n";
+    if (!body.empty())
+    {
+        frame << body;
+        if (body.back() != '\n')
+        {
+            frame << '\n';
+        }
+        frame << '\n';
+    }
+
+    for (std::size_t i = 0; i < options.size(); ++i)
+    {
+        frame << ((static_cast<int>(i) == selectedIndex) ? "> " : "  ");
+        frame << options[i] << '\n';
+    }
+
+    return frame.str();
 }
