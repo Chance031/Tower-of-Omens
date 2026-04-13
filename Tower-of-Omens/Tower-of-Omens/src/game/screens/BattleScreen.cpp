@@ -7,6 +7,22 @@
 
 namespace
 {
+struct SkillDefinition
+{
+    std::string name;
+    std::string description;
+    int mpCost = 0;
+    int attackBonus = 0;
+    bool grantsGuard = false;
+};
+
+struct ItemDefinition
+{
+    std::string name;
+    std::string description;
+    int count = 0;
+};
+
 // 전투 종류를 화면에 표시할 이름으로 변환한다.
 std::string BattleTypeName(BattleType battleType)
 {
@@ -39,8 +55,42 @@ std::string PassiveDescription(JobClass job)
         : "행동 후 MP를 3 회복한다.";
 }
 
-// 직업과 선택에 따라 행동 설명 문구를 만든다.
-std::string ActionDescription(JobClass job, int actionIndex)
+// 현재 층과 직업에 맞는 사용 가능한 스킬 목록을 만든다.
+std::vector<SkillDefinition> BuildSkillList(JobClass job, int floor)
+{
+    std::vector<SkillDefinition> skills;
+
+    if (job == JobClass::Warrior)
+    {
+        skills.push_back({"강철 태세", "MP 8 소모. 피해를 주고 이번 턴 방어를 강화한다.", 8, 5, true});
+        if (floor >= 5)
+        {
+            skills.push_back({"파쇄 돌격", "MP 14 소모. 더 큰 피해를 주고 자세를 다잡는다.", 14, 12, true});
+        }
+    }
+    else
+    {
+        skills.push_back({"마력 폭발", "MP 14 소모. 강한 마법 피해를 준다.", 14, 16, false});
+        if (floor >= 5)
+        {
+            skills.push_back({"운석 낙하", "MP 20 소모. 압도적인 마법 피해를 준다.", 20, 24, false});
+        }
+    }
+
+    return skills;
+}
+
+// 현재 플레이어의 아이템 목록을 만든다.
+std::vector<ItemDefinition> BuildItemList(const Player& player)
+{
+    return {
+        {"회복약", "HP를 35 회복한다.", player.potionCount},
+        {"마나약", "MP를 20 회복한다.", player.etherCount}
+    };
+}
+
+// 직업과 층수, 선택에 따라 행동 설명 문구를 만든다.
+std::string ActionDescription(JobClass job, int floor, int actionIndex)
 {
     switch (actionIndex)
     {
@@ -48,10 +98,10 @@ std::string ActionDescription(JobClass job, int actionIndex)
         return "무기를 휘둘러 적을 공격한다.";
     case 1:
         return (job == JobClass::Warrior)
-            ? "MP 8을 소모해 강철 태세를 취하고 큰 일격을 가한다."
-            : "MP 14를 소모해 마력 폭발을 일으킨다.";
+            ? ((floor >= 5) ? "사용 가능한 전투 기술을 선택한다. 강철 태세와 파쇄 돌격을 사용할 수 있다." : "사용 가능한 전투 기술을 선택한다. 현재는 강철 태세를 사용할 수 있다.")
+            : ((floor >= 5) ? "사용 가능한 마법 기술을 선택한다. 마력 폭발과 운석 낙하를 사용할 수 있다." : "사용 가능한 마법 기술을 선택한다. 현재는 마력 폭발을 사용할 수 있다.");
     case 2:
-        return "회복약이나 마나약을 사용한다.";
+        return "사용 가능한 소모품 목록을 열어 하나를 선택한다.";
     case 3:
         return "방어 자세를 취해 받는 피해를 줄인다.";
     case 4:
@@ -90,6 +140,37 @@ std::string ComposeLogText(const std::vector<std::string>& logs)
 
     return stream.str();
 }
+
+// 스킬 목록 화면의 본문 문자열을 만든다.
+std::string ComposeSkillMenuBody(const Player& player, const SkillDefinition& skill)
+{
+    std::ostringstream body;
+    body << "[플레이어]\n";
+    body << player.name << " | 현재 층 " << player.floor << '\n';
+    body << "HP " << player.hp << '/' << player.maxHp;
+    body << " | MP " << player.mp << '/' << player.maxMp << "\n\n";
+    body << "[선택한 스킬]\n";
+    body << skill.name << '\n';
+    body << skill.description << '\n';
+    body << "필요 MP: " << skill.mpCost << '\n';
+    body << "ESC를 누르면 전투 메뉴로 돌아간다.\n";
+    return body.str();
+}
+
+// 아이템 목록 화면의 본문 문자열을 만든다.
+std::string ComposeItemMenuBody(const Player& player, const ItemDefinition& item)
+{
+    std::ostringstream body;
+    body << "[플레이어]\n";
+    body << player.name << " | 현재 층 " << player.floor << '\n';
+    body << "HP " << player.hp << '/' << player.maxHp;
+    body << " | MP " << player.mp << '/' << player.maxMp << "\n\n";
+    body << "[선택한 아이템]\n";
+    body << item.name << " | 보유 수량: " << item.count << '\n';
+    body << item.description << '\n';
+    body << "ESC를 누르면 전투 메뉴로 돌아간다.\n";
+    return body.str();
+}
 }
 
 // 전투 화면을 표시하고 현재 전투의 결과를 돌려준다.
@@ -103,6 +184,8 @@ BattleResult BattleScreen::Run(
     const std::vector<std::string> options = {"공격", "스킬", "아이템", "방어", "도주"};
     int selected = 0;
     int enemyHp = enemy.hp;
+    int skillSelected = 0;
+    int itemSelected = 0;
     std::vector<std::string> battleLogs;
 
     if (battleType == BattleType::Boss)
@@ -142,7 +225,7 @@ BattleResult BattleScreen::Run(
         body << enemy.name << " | HP " << enemyHp << '/' << enemy.hp << " | ATK " << enemy.atk;
         body << " | 보상 " << enemy.goldReward << " Gold\n\n";
         body << "[행동 설명]\n";
-        body << ActionDescription(player.job, selected) << "\n\n";
+        body << ActionDescription(player.job, player.floor, selected) << "\n\n";
         body << "[전투 로그]\n";
         body << ComposeLogText(battleLogs);
 
@@ -179,59 +262,146 @@ BattleResult BattleScreen::Run(
             break;
 
         case 1:
-            performedAction = true;
-            if (player.job == JobClass::Warrior)
+        {
+            const std::vector<SkillDefinition> skills = BuildSkillList(player.job, player.floor);
+            if (skillSelected >= static_cast<int>(skills.size()))
             {
-                const int skillCost = 8;
-                if (player.mp < skillCost)
+                skillSelected = 0;
+            }
+
+            for (;;)
+            {
+                std::vector<std::string> skillOptions;
+                for (const SkillDefinition& skill : skills)
                 {
-                    PushBattleLog(battleLogs, "MP가 부족해 강철 태세를 사용할 수 없다.");
+                    skillOptions.push_back(skill.name);
+                }
+
+                renderer.Present(renderer.ComposeMenuFrame(
+                    "스킬 선택",
+                    ComposeSkillMenuBody(player, skills[skillSelected]),
+                    skillOptions,
+                    skillSelected));
+
+                const MenuAction skillAction = input.ReadMenuSelection(skillSelected, static_cast<int>(skillOptions.size()));
+                if (skillAction.type == MenuResultType::Move)
+                {
+                    skillSelected = skillAction.index;
                     continue;
                 }
 
-                player.mp -= skillCost;
-                guarded = true;
-                playerDamage = ComputeDamage(player.atk + 5, enemy.atk / 3);
-                enemyHp = std::max(0, enemyHp - playerDamage);
-                PushBattleLog(battleLogs, "강철 태세로 " + std::to_string(playerDamage) + "의 피해를 주고 방어를 강화했다.");
-            }
-            else
-            {
-                const int skillCost = 14;
-                if (player.mp < skillCost)
+                if (skillAction.type == MenuResultType::Cancel)
                 {
-                    PushBattleLog(battleLogs, "MP가 부족해 마력 폭발을 사용할 수 없다.");
-                    continue;
+                    break;
                 }
 
-                player.mp -= skillCost;
-                playerDamage = ComputeDamage(player.atk + 16, enemy.atk / 5);
-                enemyHp = std::max(0, enemyHp - playerDamage);
-                PushBattleLog(battleLogs, "마력 폭발이 적중해 " + std::to_string(playerDamage) + "의 큰 피해를 주었다.");
-            }
-            break;
-
-        case 2:
-            if (player.hp < player.maxHp && player.potionCount > 0)
-            {
+                const SkillDefinition& skill = skills[skillAction.index];
                 performedAction = true;
-                player.hp = std::min(player.maxHp, player.hp + 35);
-                --player.potionCount;
-                PushBattleLog(battleLogs, "회복약을 사용해 HP를 회복했다.");
+
+                if (player.mp < skill.mpCost)
+                {
+                    PushBattleLog(battleLogs, "MP가 부족해 " + skill.name + "을(를) 사용할 수 없다.");
+                    break;
+                }
+
+                player.mp -= skill.mpCost;
+                guarded = skill.grantsGuard;
+                playerDamage = ComputeDamage(player.atk + skill.attackBonus, enemy.atk / (skill.grantsGuard ? 4 : 6));
+                enemyHp = std::max(0, enemyHp - playerDamage);
+                PushBattleLog(battleLogs, skill.name + "이 적중해 " + std::to_string(playerDamage) + "의 피해를 주었다.");
+                if (skill.grantsGuard)
+                {
+                    PushBattleLog(battleLogs, "스킬의 여파로 자세를 가다듬고 방어를 강화했다.");
+                }
+                break;
+            }
+
+            if (!performedAction)
+            {
                 continue;
             }
+            break;
+        }
 
-            if (player.mp < player.maxMp && player.etherCount > 0)
+        case 2:
+        {
+            const std::vector<ItemDefinition> items = BuildItemList(player);
+            if (itemSelected >= static_cast<int>(items.size()))
             {
+                itemSelected = 0;
+            }
+
+            for (;;)
+            {
+                std::vector<std::string> itemOptions;
+                for (const ItemDefinition& item : items)
+                {
+                    itemOptions.push_back(item.name);
+                }
+
+                renderer.Present(renderer.ComposeMenuFrame(
+                    "아이템 선택",
+                    ComposeItemMenuBody(player, items[itemSelected]),
+                    itemOptions,
+                    itemSelected));
+
+                const MenuAction itemAction = input.ReadMenuSelection(itemSelected, static_cast<int>(itemOptions.size()));
+                if (itemAction.type == MenuResultType::Move)
+                {
+                    itemSelected = itemAction.index;
+                    continue;
+                }
+
+                if (itemAction.type == MenuResultType::Cancel)
+                {
+                    break;
+                }
+
                 performedAction = true;
+                if (itemAction.index == 0)
+                {
+                    if (player.potionCount <= 0)
+                    {
+                        PushBattleLog(battleLogs, "회복약이 부족하다.");
+                        break;
+                    }
+
+                    if (player.hp >= player.maxHp)
+                    {
+                        PushBattleLog(battleLogs, "HP가 가득 차 있어 회복약을 사용할 수 없다.");
+                        break;
+                    }
+
+                    player.hp = std::min(player.maxHp, player.hp + 35);
+                    --player.potionCount;
+                    PushBattleLog(battleLogs, "회복약을 사용해 HP를 회복했다.");
+                    break;
+                }
+
+                if (player.etherCount <= 0)
+                {
+                    PushBattleLog(battleLogs, "마나약이 부족하다.");
+                    break;
+                }
+
+                if (player.mp >= player.maxMp)
+                {
+                    PushBattleLog(battleLogs, "MP가 가득 차 있어 마나약을 사용할 수 없다.");
+                    break;
+                }
+
                 player.mp = std::min(player.maxMp, player.mp + 20);
                 --player.etherCount;
                 PushBattleLog(battleLogs, "마나약을 사용해 MP를 회복했다.");
-                continue;
+                break;
             }
 
-            PushBattleLog(battleLogs, "사용할 수 있는 소모품이 없다.");
+            if (!performedAction)
+            {
+                continue;
+            }
             continue;
+        }
 
         case 3:
             performedAction = true;
@@ -269,7 +439,7 @@ BattleResult BattleScreen::Run(
             clearBody << enemy.name << " | HP 0/" << enemy.hp << " | ATK " << enemy.atk;
             clearBody << " | 보상 " << enemy.goldReward << " Gold\n\n";
             clearBody << "[행동 설명]\n";
-            clearBody << ActionDescription(player.job, selected) << "\n\n";
+            clearBody << ActionDescription(player.job, player.floor, selected) << "\n\n";
             clearBody << "[전투 로그]\n";
             clearBody << ComposeLogText(battleLogs);
             renderer.Present(renderer.ComposeMenuFrame("전투", clearBody.str(), options, selected));

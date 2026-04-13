@@ -234,6 +234,39 @@ BattleType Game::DetermineBattleType(PathChoice path) const
     return BattleType::Normal;
 }
 
+// 승리 후 직업별 성장치를 적용한다.
+std::string Game::ApplyJobGrowth()
+{
+    std::ostringstream growth;
+
+    if (m_player.job == JobClass::Warrior)
+    {
+        m_player.maxHp += 8;
+        m_player.hp = std::min(m_player.maxHp, m_player.hp + 8);
+        ++m_player.def;
+        growth << "\n전사의 성장으로 최대 HP가 8, DEF가 1 상승했다.";
+
+        if (m_player.floor == 5)
+        {
+            growth << "\n5층의 벽을 넘으며 전사의 두 번째 기술 '파쇄 돌격'이 해금되었다.";
+        }
+    }
+    else
+    {
+        m_player.maxMp += 8;
+        m_player.mp = std::min(m_player.maxMp, m_player.mp + 8);
+        ++m_player.atk;
+        growth << "\n마법사의 성장으로 최대 MP가 8, ATK가 1 상승했다.";
+
+        if (m_player.floor == 5)
+        {
+            growth << "\n5층의 벽을 넘으며 마법사의 두 번째 기술 '운석 낙하'가 해금되었다.";
+        }
+    }
+
+    return growth.str();
+}
+
 // 승리한 전투의 보상을 플레이어에게 반영한다.
 std::string Game::ApplyBattleReward(const Enemy& enemy, BattleType battleType, PathChoice path)
 {
@@ -261,5 +294,7 @@ std::string Game::ApplyBattleReward(const Enemy& enemy, BattleType battleType, P
         message << "\n첫 전투를 마치고 정비층으로 향한다.";
     }
 
+    message << ApplyJobGrowth();
     return message.str();
 }
+
