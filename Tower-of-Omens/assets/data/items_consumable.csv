@@ -1,0 +1,9 @@
+id,name,description,type,job_restriction,effect,value,buy_price,sell_price
+201,회복 포션,HP를 50 회복한다.,potion,none,hp,50,30,15
+202,고급 회복 포션,HP를 120 회복한다.,potion,none,hp,120,70,35
+203,에테르,MP를 40 회복한다.,ether,none,mp,40,30,15
+204,고급 에테르,MP를 100 회복한다.,ether,none,mp,100,70,35
+205,만능 물약,HP와 MP를 각각 60 회복한다.,potion,none,hp_mp,60,80,40
+206,생명의 씨앗,최대 HP를 20 영구 증가시킨다.,special,none,maxHp,20,150,75
+207,마력의 결정,최대 MP를 15 영구 증가시킨다.,special,none,maxMp,15,150,75
+208,전투 각성제,다음 공격의 ATK를 1회에 한해 2배로 만든다.,buff,none,atk_multiplier,2,60,30
