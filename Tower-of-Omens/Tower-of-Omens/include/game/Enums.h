@@ -1,26 +1,30 @@
 #pragma once
 
-// Tower of Omens에서 사용하는 상위 게임 상태다.
+// Top-level game states.
 enum class GameState
 {
+    Init,
     Title,
     JobSelect,
-    Maintenance,
-    FloorLoop,
+    FloorSelect,
     Battle,
+    Event,
+    Reward,
+    Prep,
+    Boss,
     GameOver,
     Clear,
     Exit
 };
 
-// 플레이어가 선택할 수 있는 직업이다.
+// Playable classes.
 enum class JobClass
 {
     Warrior,
     Mage
 };
 
-// 층에서 선택할 수 있는 길의 종류다.
+// Route choices offered on each floor.
 enum class PathChoice
 {
     Normal,
@@ -29,7 +33,7 @@ enum class PathChoice
     Unknown
 };
 
-// 전투의 종류를 나타낸다.
+// Encounter categories.
 enum class BattleType
 {
     Normal,
@@ -38,7 +42,7 @@ enum class BattleType
     Boss
 };
 
-// 전투 화면이 돌려주는 결과를 나타낸다.
+// Results returned by the battle screen.
 enum class BattleResult
 {
     Victory,

@@ -28,15 +28,13 @@ struct RelicDefinition
     std::string description;
 };
 
-// 선택한 길 종류를 화면에 표시할 이름으로 변환한다.
 std::string PathName(PathChoice path)
 {
     switch (path)
     {
     case PathChoice::Normal:
         return "일반 전투";
-    case PathChoice::Safe:
-        return "안정적인 길";
+
     case PathChoice::Dangerous:
         return "엘리트 전투";
     case PathChoice::Unknown:
@@ -46,7 +44,22 @@ std::string PathName(PathChoice path)
     return "알 수 없는 길";
 }
 
-// 보상과 유물 선택에 사용할 무작위 정수 값을 만든다.
+std::string PathTransitionMessage(PathChoice path, BattleType battleType)
+{
+    switch (battleType)
+    {
+    case BattleType::Elite:
+        return PathName(path) + "으로 진입한다. 강한 적의 기척이 느껴진다.";
+    case BattleType::Event:
+        return PathName(path) + "으로 진입한다. 수상한 기운이 감돈다.";
+    case BattleType::Boss:
+        return "탑의 최상층이다. 심연의 징조가 기다리고 있다.";
+    case BattleType::Normal:
+    default:
+        return PathName(path) + "으로 진입한다. 다음 전투를 준비한다.";
+    }
+}
+
 int RandomIndex(int minValue, int maxValue)
 {
     static std::random_device seed;
@@ -55,7 +68,6 @@ int RandomIndex(int minValue, int maxValue)
     return distribution(generator);
 }
 
-// 일반 전투 보상 후보 풀을 만든다.
 std::vector<RewardItem> BuildRewardPool()
 {
     return {
@@ -68,7 +80,6 @@ std::vector<RewardItem> BuildRewardPool()
     };
 }
 
-// 엘리트 보상으로 사용할 유물 풀을 만든다.
 std::vector<RelicDefinition> BuildRelicPool()
 {
     return {
@@ -79,7 +90,6 @@ std::vector<RelicDefinition> BuildRelicPool()
     };
 }
 
-// 전리품 선택 화면의 본문을 만든다.
 std::string ComposeRewardBody(
     const Player& player,
     const Enemy& enemy,
@@ -105,7 +115,17 @@ std::string ComposeRewardBody(
     return body.str();
 }
 
-// 적용된 전리품 결과를 요약한다.
+std::string ComposeGameOverBody(const Player& player)
+{
+    std::ostringstream body;
+    body << "[탐험 종료]\n";
+    body << player.name << " | 도달 층 " << player.floor << " | 레벨 " << player.level << '\n';
+    body << "보유 Gold " << player.gold << " | 유물 " << player.relicNames.size() << "개\n\n";
+    body << "심연의 탑에서 쓰러졌다.\n";
+    body << "직업 선택으로 돌아가 다시 도전하거나 타이틀로 복귀할 수 있다.\n";
+    return body.str();
+}
+
 std::string ApplyRewardItem(Player& player, const RewardItem& reward)
 {
     if (reward.name == "회복약 꾸러미")
@@ -144,7 +164,6 @@ std::string ApplyRewardItem(Player& player, const RewardItem& reward)
     return "최대 MP가 10 상승하고 MP를 10 회복했다.";
 }
 
-// 유물 효과를 플레이어에게 적용한다.
 std::string ApplyRelicReward(Player& player)
 {
     std::vector<RelicDefinition> availableRelics;
@@ -184,29 +203,31 @@ std::string ApplyRelicReward(Player& player)
         player.mp = std::min(player.maxMp, player.mp + 18);
     }
 
-    return "유물 '" + relic.name + "' 획득: " + relic.description;
+    return "유물 획득: " + relic.name + " - " + relic.description;
 }
 }
 
-// 게임 객체를 기본 상태로 생성한다.
 Game::Game()
-    : m_state(GameState::Title),
+    : m_state(GameState::Init),
       m_pendingBattleType(BattleType::Normal),
-      m_pendingPathChoice(PathChoice::Normal)
+      m_pendingPathChoice(PathChoice::Normal),
+      m_lastBattleType(BattleType::Normal),
+      m_lastResolvedPathChoice(PathChoice::Normal)
 {
 }
 
-// 게임 실행 전 필요한 초기 상태를 준비한다.
 void Game::Initialize()
 {
-    m_state = GameState::Title;
+    m_state = GameState::Init;
     m_player = {};
     m_pendingBattleType = BattleType::Normal;
     m_pendingPathChoice = PathChoice::Normal;
+    m_lastEnemy = {};
+    m_lastBattleType = BattleType::Normal;
+    m_lastResolvedPathChoice = PathChoice::Normal;
     m_renderer.Initialize();
 }
 
-// 현재 게임 상태에 맞는 흐름을 실행한다.
 void Game::Run()
 {
     MenuInput menuInput;
@@ -221,6 +242,10 @@ void Game::Run()
     {
         switch (m_state)
         {
+        case GameState::Init:
+            m_state = GameState::Title;
+            break;
+
         case GameState::Title:
             m_state = titleScreen.Run(m_renderer, menuInput) ? GameState::JobSelect : GameState::Exit;
             break;
@@ -241,7 +266,45 @@ void Game::Run()
             break;
         }
 
-        case GameState::Maintenance:
+        case GameState::FloorSelect:
+        {
+            if (m_player.floor >= 10)
+            {
+                m_pendingPathChoice = PathChoice::Normal;
+                m_pendingBattleType = BattleType::Boss;
+                messageScreen.Show(m_renderer, menuInput, "10층", PathTransitionMessage(PathChoice::Normal, BattleType::Boss));
+                m_state = GameState::Boss;
+                break;
+            }
+
+            const FloorLoopResult result = floorLoopScreen.Run(m_player, m_renderer, menuInput);
+            if (!result.selectedPath.has_value())
+            {
+                m_state = result.nextState;
+                break;
+            }
+
+            m_pendingPathChoice = *result.selectedPath;
+            m_pendingBattleType = DetermineBattleType(*result.selectedPath);
+            messageScreen.Show(m_renderer, menuInput, "길 선택", PathTransitionMessage(*result.selectedPath, m_pendingBattleType));
+            m_state = (m_pendingBattleType == BattleType::Event) ? GameState::Event : GameState::Battle;
+            break;
+        }
+
+        case GameState::Battle:
+            m_state = RunEncounterState(m_pendingBattleType, battleScreen, messageScreen, menuInput);
+            break;
+
+        case GameState::Event:
+            m_state = RunObservationEvent(messageScreen, menuInput);
+            break;
+
+        case GameState::Reward:
+            ResolveBattleReward(m_lastEnemy, m_lastBattleType, m_lastResolvedPathChoice, menuInput);
+            m_state = GameState::Prep;
+            break;
+
+        case GameState::Prep:
         {
             const MaintenanceResult result = maintenanceScreen.Run(m_player, m_renderer, menuInput);
             if (!result.summary.empty())
@@ -252,73 +315,12 @@ void Game::Run()
             break;
         }
 
-        case GameState::FloorLoop:
-        {
-            const FloorLoopResult result = floorLoopScreen.Run(m_player, m_renderer, menuInput);
-            m_state = result.nextState;
-
-            if (m_player.floor >= 10)
-            {
-                m_pendingPathChoice = PathChoice::Normal;
-                m_pendingBattleType = BattleType::Boss;
-                messageScreen.Show(m_renderer, menuInput, "10층", "더 이상 길을 고를 수 없다. 보스전이 시작된다.");
-                m_state = GameState::Battle;
-                break;
-            }
-
-            if (result.selectedPath.has_value())
-            {
-                m_pendingPathChoice = *result.selectedPath;
-                m_pendingBattleType = DetermineBattleType(*result.selectedPath);
-                messageScreen.Show(
-                    m_renderer,
-                    menuInput,
-                    "길 선택",
-                    PathName(*result.selectedPath) + "으로 진입한다. 다음 전투를 준비한다.");
-                m_state = GameState::Battle;
-            }
+        case GameState::Boss:
+            m_state = RunEncounterState(BattleType::Boss, battleScreen, messageScreen, menuInput);
             break;
-        }
-
-        case GameState::Battle:
-        {
-            const Enemy enemy = m_enemyFactory.Create(m_pendingBattleType, m_pendingPathChoice, m_player.floor);
-            const BattleResult result = battleScreen.Run(m_player, enemy, m_pendingBattleType, m_renderer, menuInput);
-
-            if (result == BattleResult::Defeat)
-            {
-                m_state = GameState::GameOver;
-                break;
-            }
-
-            if (result == BattleResult::Escape)
-            {
-                if (m_pendingBattleType != BattleType::Boss)
-                {
-                    ++m_player.floor;
-                }
-
-                messageScreen.Show(m_renderer, menuInput, "전투 이탈", "보상은 얻지 못했지만 목숨은 건졌다. 정비층으로 이동한다.");
-                m_state = GameState::Maintenance;
-                break;
-            }
-
-            if (m_pendingBattleType == BattleType::Boss)
-            {
-                messageScreen.Show(m_renderer, menuInput, "보스 격파", "심연의 징조를 쓰러뜨렸다. 탑의 정상에 도달했다.");
-                m_state = GameState::Clear;
-                break;
-            }
-
-            ++m_player.floor;
-            ResolveBattleReward(enemy, m_pendingBattleType, m_pendingPathChoice, menuInput);
-            m_state = GameState::Maintenance;
-            break;
-        }
 
         case GameState::GameOver:
-            messageScreen.Show(m_renderer, menuInput, "Game Over", "Returning to title...");
-            m_state = GameState::Title;
+            m_state = RunGameOverScreen(menuInput);
             break;
 
         case GameState::Clear:
@@ -334,7 +336,6 @@ void Game::Run()
     m_renderer.Shutdown();
 }
 
-// 직업 선택 결과를 바탕으로 플레이어의 시작 능력치를 설정한다.
 void Game::StartRun(JobClass job)
 {
     m_player = {};
@@ -372,19 +373,16 @@ void Game::StartRun(JobClass job)
     m_player.mp = m_player.maxMp;
 }
 
-// 직업 enum 값을 화면에 표시할 이름으로 변환한다.
 std::string Game::JobName(JobClass job) const
 {
     return (job == JobClass::Warrior) ? "전사" : "마법사";
 }
 
-// 길 선택 결과를 바탕으로 다음 전투 종류를 결정한다.
 BattleType Game::DetermineBattleType(PathChoice path) const
 {
     switch (path)
     {
     case PathChoice::Normal:
-    case PathChoice::Safe:
         return BattleType::Normal;
     case PathChoice::Dangerous:
         return BattleType::Elite;
@@ -395,7 +393,6 @@ BattleType Game::DetermineBattleType(PathChoice path) const
     return BattleType::Normal;
 }
 
-// 승리 후 직업별 성장치를 적용한다.
 std::string Game::ApplyJobGrowth()
 {
     ++m_player.level;
@@ -410,13 +407,104 @@ std::string Game::ApplyJobGrowth()
     }
     else if (m_player.job == JobClass::Mage && m_player.level == 5)
     {
-        growth << "\n마법사의 두 번째 기술 '운석 낙하'가 해금되었다.";
+        growth << "\n마법사의 두 번째 기술 '운석 낙하'이 해금되었다.";
     }
 
     return growth.str();
 }
 
-// 승리한 전투의 보상을 플레이어에게 반영하고 요약을 만든다.
+GameState Game::RunEncounterState(
+    BattleType battleType,
+    BattleScreen& battleScreen,
+    MessageScreen& messageScreen,
+    const MenuInput& input)
+{
+    const Enemy enemy = m_enemyFactory.Create(battleType, m_pendingPathChoice, m_player.floor);
+    const BattleResult result = battleScreen.Run(m_player, enemy, battleType, m_renderer, input);
+
+    if (result == BattleResult::Defeat)
+    {
+        return GameState::GameOver;
+    }
+
+    if (result == BattleResult::Escape)
+    {
+        if (battleType != BattleType::Boss)
+        {
+            ++m_player.floor;
+        }
+
+        messageScreen.Show(m_renderer, input, "전투 이탈", "보상은 얻지 못했지만 목숨은 건졌다. 정비층으로 이동한다.");
+        return GameState::Prep;
+    }
+
+    if (battleType == BattleType::Boss)
+    {
+        messageScreen.Show(m_renderer, input, "보스 격파", "심연의 징조를 쓰러뜨렸다. 탑의 정상에 도달했다.");
+        return GameState::Clear;
+    }
+
+    ++m_player.floor;
+    m_lastEnemy = enemy;
+    m_lastBattleType = battleType;
+    m_lastResolvedPathChoice = m_pendingPathChoice;
+    return GameState::Reward;
+}
+
+GameState Game::RunObservationEvent(MessageScreen& messageScreen, const MenuInput& input)
+{
+    const std::string observationRelicName = "관찰 유물";
+    const bool alreadyOwned =
+        std::find(m_player.relicNames.begin(), m_player.relicNames.end(), observationRelicName) != m_player.relicNames.end();
+
+    std::ostringstream body;
+    body << "희미한 수정 구슬이 놓인 방을 발견했다.\n";
+    body << "구슬 표면에는 적의 다음 움직임을 비추는 문양이 떠오른다.\n\n";
+
+    if (!alreadyOwned)
+    {
+        m_player.relicNames.push_back(observationRelicName);
+        body << "[획득 유물]\n";
+        body << observationRelicName << '\n';
+        body << "적이 다음 턴에 공격, 방어, 회복 중 무엇을 할지 미리 볼 수 있다.\n";
+    }
+    else
+    {
+        m_player.gold += 25;
+        m_player.hp = std::min(m_player.maxHp, m_player.hp + 10);
+        body << "이미 관찰 유물을 보유하고 있다.\n";
+        body << "대신 Gold 25와 HP 10을 회복했다.\n";
+    }
+
+    messageScreen.Show(m_renderer, input, "이벤트", body.str());
+    ++m_player.floor;
+    return GameState::Prep;
+}
+GameState Game::RunGameOverScreen(const MenuInput& input)
+{
+    const std::vector<std::string> options = {"다시 도전", "타이틀로"};
+    int selected = 0;
+
+    for (;;)
+    {
+        m_renderer.Present(m_renderer.ComposeMenuFrame("Game Over", ComposeGameOverBody(m_player), options, selected));
+
+        const MenuAction action = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
+        if (action.type == MenuResultType::Move)
+        {
+            selected = action.index;
+            continue;
+        }
+
+        if (action.type == MenuResultType::Cancel)
+        {
+            return GameState::Title;
+        }
+
+        return (action.index == 0) ? GameState::JobSelect : GameState::Title;
+    }
+}
+
 std::string Game::ResolveBattleReward(const Enemy& enemy, BattleType battleType, PathChoice path, const MenuInput& input)
 {
     m_player.gold += enemy.goldReward;

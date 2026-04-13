@@ -7,14 +7,12 @@
 
 #include <optional>
 
-// 층 진행 화면의 처리 결과를 나타낸다.
 struct FloorLoopResult
 {
-    GameState nextState = GameState::FloorLoop;
+    GameState nextState = GameState::FloorSelect;
     std::optional<PathChoice> selectedPath;
 };
 
-// 층 진행 화면의 다음 상태를 돌려준다.
 class FloorLoopScreen
 {
 public:

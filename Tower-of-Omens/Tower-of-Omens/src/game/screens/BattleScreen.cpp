@@ -1,6 +1,7 @@
 #include "game/screens/BattleScreen.h"
 
 #include <algorithm>
+#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -23,7 +24,13 @@ struct ItemDefinition
     int count = 0;
 };
 
-// 전투 종류를 화면에 표시할 이름으로 변환한다.
+enum class EnemyIntent
+{
+    Attack,
+    Guard,
+    Recover
+};
+
 std::string BattleTypeName(BattleType battleType)
 {
     switch (battleType)
@@ -41,13 +48,11 @@ std::string BattleTypeName(BattleType battleType)
     return "전투";
 }
 
-// 직업별 패시브 이름을 반환한다.
 std::string PassiveName(JobClass job)
 {
     return (job == JobClass::Warrior) ? "불굴" : "마력 순환";
 }
 
-// 직업별 패시브 설명을 반환한다.
 std::string PassiveDescription(JobClass job)
 {
     return (job == JobClass::Warrior)
@@ -55,7 +60,41 @@ std::string PassiveDescription(JobClass job)
         : "행동 후 MP를 3 회복한다.";
 }
 
-// 현재 수치를 비율 바 형태의 문자열로 바꾼다.
+bool HasObservationRelic(const Player& player)
+{
+    return std::find(player.relicNames.begin(), player.relicNames.end(), "관찰 유물") != player.relicNames.end();
+}
+
+std::string EnemyIntentName(EnemyIntent intent)
+{
+    switch (intent)
+    {
+    case EnemyIntent::Attack:
+        return "공격";
+    case EnemyIntent::Guard:
+        return "방어";
+    case EnemyIntent::Recover:
+        return "회복";
+    }
+
+    return "알 수 없음";
+}
+
+std::string EnemyIntentDescription(EnemyIntent intent)
+{
+    switch (intent)
+    {
+    case EnemyIntent::Attack:
+        return "다음 턴에 플레이어를 노리고 공격을 준비 중이다.";
+    case EnemyIntent::Guard:
+        return "다음 턴에 몸을 웅크리고 피해를 줄일 생각이다.";
+    case EnemyIntent::Recover:
+        return "다음 턴에 숨을 고르며 체력을 회복하려 한다.";
+    }
+
+    return "의도를 읽을 수 없다.";
+}
+
 std::string MakeBar(int current, int maximum, int width, char filled, char empty)
 {
     if (maximum <= 0)
@@ -68,7 +107,58 @@ std::string MakeBar(int current, int maximum, int width, char filled, char empty
     return std::string(filledCount, filled) + std::string(width - filledCount, empty);
 }
 
-// 현재 층과 직업에 맞는 사용 가능한 스킬 목록을 만든다.
+int RandomPercent()
+{
+    static std::random_device seed;
+    static std::mt19937 generator(seed());
+    static std::uniform_int_distribution<int> distribution(1, 100);
+    return distribution(generator);
+}
+
+EnemyIntent RollEnemyIntent(int enemyHp, int enemyMaxHp, BattleType battleType)
+{
+    const int hpRate = (enemyMaxHp <= 0) ? 100 : (enemyHp * 100) / enemyMaxHp;
+    const int roll = RandomPercent();
+
+    if (hpRate <= 35)
+    {
+        if (roll <= 30)
+        {
+            return EnemyIntent::Recover;
+        }
+        if (roll <= 55)
+        {
+            return EnemyIntent::Guard;
+        }
+        return EnemyIntent::Attack;
+    }
+
+    if (battleType == BattleType::Boss)
+    {
+        if (roll <= 20)
+        {
+            return EnemyIntent::Guard;
+        }
+        return EnemyIntent::Attack;
+    }
+
+    if (battleType == BattleType::Elite)
+    {
+        if (roll <= 25)
+        {
+            return EnemyIntent::Guard;
+        }
+        return EnemyIntent::Attack;
+    }
+
+    if (roll <= 20)
+    {
+        return EnemyIntent::Guard;
+    }
+
+    return EnemyIntent::Attack;
+}
+
 std::vector<SkillDefinition> BuildSkillList(JobClass job, int level)
 {
     std::vector<SkillDefinition> skills;
@@ -93,7 +183,6 @@ std::vector<SkillDefinition> BuildSkillList(JobClass job, int level)
     return skills;
 }
 
-// 현재 플레이어의 아이템 목록을 만든다.
 std::vector<ItemDefinition> BuildItemList(const Player& player)
 {
     return {
@@ -102,7 +191,6 @@ std::vector<ItemDefinition> BuildItemList(const Player& player)
     };
 }
 
-// 직업과 층수, 선택에 따라 행동 설명 문구를 만든다.
 std::string ActionDescription(JobClass job, int level, int actionIndex)
 {
     switch (actionIndex)
@@ -124,13 +212,11 @@ std::string ActionDescription(JobClass job, int level, int actionIndex)
     return "행동을 선택한다.";
 }
 
-// 공격력과 방어력을 바탕으로 최종 피해량을 계산한다.
 int ComputeDamage(int attack, int defense)
 {
     return std::max(1, attack - defense);
 }
 
-// 최근 로그만 남기도록 새 항목을 추가한다.
 void PushBattleLog(std::vector<std::string>& logs, const std::string& line)
 {
     logs.push_back(line);
@@ -142,7 +228,6 @@ void PushBattleLog(std::vector<std::string>& logs, const std::string& line)
     }
 }
 
-// 로그 목록을 화면 출력용 문자열로 합친다.
 std::string ComposeLogText(const std::vector<std::string>& logs)
 {
     std::ostringstream stream;
@@ -154,7 +239,16 @@ std::string ComposeLogText(const std::vector<std::string>& logs)
     return stream.str();
 }
 
-// 플레이어 상태 패널 문자열을 만든다.
+std::string ComposeStatusHeadline(const Player& player)
+{
+    std::ostringstream body;
+    body << "[현재 상태] HP " << player.hp << '/' << player.maxHp;
+    body << " | MP " << player.mp << '/' << player.maxMp;
+    body << " | 회복약 " << player.potionCount;
+    body << " | 마나약 " << player.etherCount << '\n';
+    return body.str();
+}
+
 std::string ComposePlayerPanel(const Player& player)
 {
     std::ostringstream body;
@@ -168,8 +262,12 @@ std::string ComposePlayerPanel(const Player& player)
     return body.str();
 }
 
-// 적 상태 패널 문자열을 만든다.
-std::string ComposeEnemyPanel(const Enemy& enemy, int enemyHp, BattleType battleType)
+std::string ComposeEnemyPanel(
+    const Player& player,
+    const Enemy& enemy,
+    int enemyHp,
+    BattleType battleType,
+    EnemyIntent nextIntent)
 {
     std::ostringstream body;
     body << "[적 패널]\n";
@@ -177,17 +275,18 @@ std::string ComposeEnemyPanel(const Enemy& enemy, int enemyHp, BattleType battle
     body << "HP [" << MakeBar(enemyHp, enemy.hp, 20, '#', '.') << "] " << enemyHp << '/' << enemy.hp << '\n';
     body << "ATK " << enemy.atk << " | 보상 " << enemy.goldReward << " Gold\n";
 
-    if (battleType == BattleType::Boss)
+    if (HasObservationRelic(player))
+    {
+        body << "다음 행동: " << EnemyIntentName(nextIntent) << "\n";
+        body << EnemyIntentDescription(nextIntent) << '\n';
+    }
+    else if (battleType == BattleType::Boss)
     {
         body << "심연이 꿈틀거린다. 물러설 곳은 없다.\n";
     }
     else if (battleType == BattleType::Elite)
     {
         body << "보통 적보다 날카로운 기세가 느껴진다.\n";
-    }
-    else if (battleType == BattleType::Event)
-    {
-        body << "기묘한 기운이 주변 공기를 뒤튼다.\n";
     }
     else
     {
@@ -197,19 +296,20 @@ std::string ComposeEnemyPanel(const Enemy& enemy, int enemyHp, BattleType battle
     return body.str();
 }
 
-// 전투 메인 화면의 본문 문자열을 만든다.
 std::string ComposeBattleBody(
     const Player& player,
     const Enemy& enemy,
     int enemyHp,
     BattleType battleType,
+    EnemyIntent nextIntent,
     int selected,
     const std::vector<std::string>& battleLogs)
 {
     std::ostringstream body;
+    body << ComposeStatusHeadline(player);
     body << ComposePlayerPanel(player) << '\n';
     body << "------------------------------------------------------------\n";
-    body << ComposeEnemyPanel(enemy, enemyHp, battleType) << '\n';
+    body << ComposeEnemyPanel(player, enemy, enemyHp, battleType, nextIntent) << '\n';
     body << "------------------------------------------------------------\n";
     body << "[현재 행동]\n";
     body << ActionDescription(player.job, player.level, selected) << "\n\n";
@@ -218,35 +318,32 @@ std::string ComposeBattleBody(
     return body.str();
 }
 
-// 스킬 목록 화면의 본문 문자열을 만든다.
 std::string ComposeSkillMenuBody(const Player& player, const SkillDefinition& skill)
 {
     std::ostringstream body;
-    body << ComposePlayerPanel(player) << '\n';
-    body << "------------------------------------------------------------\n";
+    body << ComposeStatusHeadline(player);
     body << "[선택한 스킬]\n";
     body << skill.name << '\n';
     body << skill.description << '\n';
-    body << "필요 MP: " << skill.mpCost << '\n';
+    body << "필요 MP: " << skill.mpCost << "\n\n";
+    body << ComposePlayerPanel(player);
     body << "ESC를 누르면 전투 메뉴로 돌아간다.\n";
     return body.str();
 }
 
-// 아이템 목록 화면의 본문 문자열을 만든다.
 std::string ComposeItemMenuBody(const Player& player, const ItemDefinition& item)
 {
     std::ostringstream body;
-    body << ComposePlayerPanel(player) << '\n';
-    body << "------------------------------------------------------------\n";
+    body << ComposeStatusHeadline(player);
     body << "[선택한 아이템]\n";
     body << item.name << " | 보유 수량: " << item.count << '\n';
-    body << item.description << '\n';
+    body << item.description << "\n\n";
+    body << ComposePlayerPanel(player);
     body << "ESC를 누르면 전투 메뉴로 돌아간다.\n";
     return body.str();
 }
 }
 
-// 전투 화면을 표시하고 현재 전투의 결과를 돌려준다.
 BattleResult BattleScreen::Run(
     Player& player,
     const Enemy& enemy,
@@ -257,9 +354,8 @@ BattleResult BattleScreen::Run(
     const std::vector<std::string> options = {"공격", "스킬", "아이템", "방어", "도주"};
     int selected = 0;
     int enemyHp = enemy.hp;
-    int skillSelected = 0;
-    int itemSelected = 0;
     std::vector<std::string> battleLogs;
+    EnemyIntent pendingEnemyIntent = RollEnemyIntent(enemyHp, enemy.hp, battleType);
 
     if (battleType == BattleType::Boss)
     {
@@ -275,7 +371,7 @@ BattleResult BattleScreen::Run(
     {
         renderer.Present(renderer.ComposeMenuFrame(
             "전투",
-            ComposeBattleBody(player, enemy, enemyHp, battleType, selected, battleLogs),
+            ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, selected, battleLogs),
             options,
             selected));
 
@@ -288,15 +384,26 @@ BattleResult BattleScreen::Run(
 
         if (action.type == MenuResultType::Cancel)
         {
+            if (battleType == BattleType::Boss)
+            {
+                PushBattleLog(battleLogs, "보스전에서는 도망칠 수 없다.");
+                continue;
+            }
             return BattleResult::Escape;
         }
 
         if (action.index == 4)
         {
+            if (battleType == BattleType::Boss)
+            {
+                PushBattleLog(battleLogs, "심연의 징조가 퇴로를 막았다.");
+                continue;
+            }
             return BattleResult::Escape;
         }
 
         bool guarded = false;
+        bool enemyGuarded = (pendingEnemyIntent == EnemyIntent::Guard);
         int playerDamage = 0;
         bool performedAction = false;
 
@@ -304,7 +411,7 @@ BattleResult BattleScreen::Run(
         {
         case 0:
             performedAction = true;
-            playerDamage = ComputeDamage(player.atk, enemy.atk / 3);
+            playerDamage = ComputeDamage(player.atk, enemyGuarded ? (enemy.atk / 2) : (enemy.atk / 3));
             enemyHp = std::max(0, enemyHp - playerDamage);
             PushBattleLog(battleLogs, "공격이 적중해 " + std::to_string(playerDamage) + "의 피해를 주었다.");
             break;
@@ -312,10 +419,7 @@ BattleResult BattleScreen::Run(
         case 1:
         {
             const std::vector<SkillDefinition> skills = BuildSkillList(player.job, player.level);
-            if (skillSelected >= static_cast<int>(skills.size()))
-            {
-                skillSelected = 0;
-            }
+            int skillSelected = 0;
 
             for (;;)
             {
@@ -354,7 +458,7 @@ BattleResult BattleScreen::Run(
 
                 player.mp -= skill.mpCost;
                 guarded = skill.grantsGuard;
-                playerDamage = ComputeDamage(player.atk + skill.attackBonus, enemy.atk / (skill.grantsGuard ? 4 : 6));
+                playerDamage = ComputeDamage(player.atk + skill.attackBonus, enemyGuarded ? (enemy.atk / 2) : (enemy.atk / 6));
                 enemyHp = std::max(0, enemyHp - playerDamage);
                 PushBattleLog(battleLogs, skill.name + "이 적중해 " + std::to_string(playerDamage) + "의 피해를 주었다.");
                 if (skill.grantsGuard)
@@ -374,10 +478,7 @@ BattleResult BattleScreen::Run(
         case 2:
         {
             const std::vector<ItemDefinition> items = BuildItemList(player);
-            if (itemSelected >= static_cast<int>(items.size()))
-            {
-                itemSelected = 0;
-            }
+            int itemSelected = 0;
 
             for (;;)
             {
@@ -448,7 +549,7 @@ BattleResult BattleScreen::Run(
             {
                 continue;
             }
-            continue;
+            break;
         }
 
         case 3:
@@ -461,34 +562,53 @@ BattleResult BattleScreen::Run(
             break;
         }
 
+        if (enemyGuarded && enemyHp > 0)
+        {
+            PushBattleLog(battleLogs, enemy.name + "이(가) 충격을 줄일 자세를 갖추고 있었다.");
+        }
+
         if (enemyHp <= 0)
         {
             PushBattleLog(battleLogs, enemy.name + "을(를) 쓰러뜨렸다.");
             renderer.Present(renderer.ComposeMenuFrame(
                 "전투 승리",
-                ComposeBattleBody(player, enemy, enemyHp, battleType, selected, battleLogs),
+                ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, selected, battleLogs),
                 options,
                 selected));
             return BattleResult::Victory;
         }
 
-        const int defenseValue = guarded ? player.def + 6 : player.def;
-        int enemyDamage = ComputeDamage(enemy.atk, defenseValue);
-
-        if (player.job == JobClass::Warrior)
+        if (pendingEnemyIntent == EnemyIntent::Recover)
         {
-            enemyDamage = std::max(1, enemyDamage - 2);
+            const int recoverAmount = (battleType == BattleType::Boss) ? 18 : 12;
+            const int previousHp = enemyHp;
+            enemyHp = std::min(enemy.hp, enemyHp + recoverAmount);
+            PushBattleLog(battleLogs, enemy.name + "이(가) 몸을 추슬러 HP를 " + std::to_string(enemyHp - previousHp) + " 회복했다.");
         }
-
-        player.hp = std::max(0, player.hp - enemyDamage);
-
-        if (guarded)
+        else if (pendingEnemyIntent == EnemyIntent::Guard)
         {
-            PushBattleLog(battleLogs, "적의 반격을 받아 " + std::to_string(enemyDamage) + "의 피해를 입었지만 방어로 충격을 줄였다.");
+            PushBattleLog(battleLogs, enemy.name + "이(가) 방어 자세를 취했다. 다음 턴에는 피해가 줄어들 수 있다.");
         }
         else
         {
-            PushBattleLog(battleLogs, "적의 반격으로 " + std::to_string(enemyDamage) + "의 피해를 입었다.");
+            const int defenseValue = guarded ? player.def + 6 : player.def;
+            int enemyDamage = ComputeDamage(enemy.atk, defenseValue);
+
+            if (player.job == JobClass::Warrior)
+            {
+                enemyDamage = std::max(1, enemyDamage - 2);
+            }
+
+            player.hp = std::max(0, player.hp - enemyDamage);
+
+            if (guarded)
+            {
+                PushBattleLog(battleLogs, "적의 반격을 받아 " + std::to_string(enemyDamage) + "의 피해를 입었지만 방어로 충격을 줄였다.");
+            }
+            else
+            {
+                PushBattleLog(battleLogs, "적의 반격으로 " + std::to_string(enemyDamage) + "의 피해를 입었다.");
+            }
         }
 
         if (player.job == JobClass::Mage && performedAction)
@@ -506,5 +626,7 @@ BattleResult BattleScreen::Run(
             PushBattleLog(battleLogs, "플레이어가 쓰러졌다.");
             return BattleResult::Defeat;
         }
+
+        pendingEnemyIntent = RollEnemyIntent(enemyHp, enemy.hp, battleType);
     }
 }
