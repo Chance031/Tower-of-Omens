@@ -34,7 +34,8 @@ enum class BattleType
 {
     Normal,
     Elite,
-    Event
+    Event,
+    Boss
 };
 
 // 전투 화면이 돌려주는 결과를 나타낸다.

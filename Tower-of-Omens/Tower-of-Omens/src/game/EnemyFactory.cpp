@@ -1,32 +1,68 @@
-#include "game/EnemyFactory.h"
+ï»¿#include "game/EnemyFactory.h"
 
-// ÀüÅõ Á¾·ù¿Í ±æ ¼±ÅÃÀ» ¹ÙÅÁÀ¸·Î Àû µ¥ÀÌÅÍ¸¦ ¸¸µç´Ù.
-Enemy EnemyFactory::Create(BattleType battleType, PathChoice path) const
+namespace
 {
-    if (path == PathChoice::Safe)
+// í˜„ì¬ ì¸µì„ ë°”íƒ•ìœ¼ë¡œ ì  ìŠ¤íƒ¯ ë³´ì •ê°’ì„ ê³„ì‚°í•œë‹¤.
+int FloorBonus(int floor, int step)
+{
+    if (floor <= 1)
     {
-        return {"°íºí¸° Á¤Âûº´", 24, 5, 10};
+        return 0;
     }
 
-    if (path == PathChoice::Dangerous)
+    return (floor - 1) * step;
+}
+}
+
+// ì „íˆ¬ ì¢…ë¥˜ì™€ ê¸¸ ì„ íƒ, í˜„ì¬ ì¸µì„ ë°”íƒ•ìœ¼ë¡œ ì  ë°ì´í„°ë¥¼ ë§Œë“ ë‹¤.
+Enemy EnemyFactory::Create(BattleType battleType, PathChoice path, int floor) const
+{
+    Enemy enemy;
+
+    if (battleType == BattleType::Boss)
     {
-        return {"±¤Æ÷ÇÑ ¿À¿ì°Å", 65, 15, 25};
+        enemy = {"ì‹¬ì—°ì˜ ì§•ì¡°", 180, 24, 100};
+    }
+    else if (path == PathChoice::Safe)
+    {
+        enemy = {"ê³ ë¸”ë¦° ì •ì°°ë³‘", 24, 5, 10};
+    }
+    else if (path == PathChoice::Dangerous)
+    {
+        enemy = {"ê´‘í¬í•œ ì˜¤ìš°ê±°", 65, 15, 25};
+    }
+    else if (path == PathChoice::Unknown)
+    {
+        enemy = {"ê·¸ë¦¼ì í™˜ì˜", 40, 9, 18};
+    }
+    else
+    {
+        switch (battleType)
+        {
+        case BattleType::Normal:
+            enemy = {"ìŠ¬ë¼ì„", 30, 6, 8};
+            break;
+        case BattleType::Elite:
+            enemy = {"ì˜¤ìš°ê±°", 60, 14, 20};
+            break;
+        case BattleType::Event:
+            enemy = {"ê·¸ë¦¼ì í™˜ì˜", 45, 10, 16};
+            break;
+        case BattleType::Boss:
+            enemy = {"ì‹¬ì—°ì˜ ì§•ì¡°", 180, 24, 100};
+            break;
+        default:
+            enemy = {"ìŠ¬ë¼ì„", 30, 6, 8};
+            break;
+        }
     }
 
-    if (path == PathChoice::Unknown)
+    if (battleType != BattleType::Boss)
     {
-        return {"±×¸²ÀÚ È¯¿µ", 40, 9, 18};
+        enemy.hp += FloorBonus(floor, 6);
+        enemy.atk += FloorBonus(floor, 2);
+        enemy.goldReward += FloorBonus(floor, 3);
     }
 
-    switch (battleType)
-    {
-    case BattleType::Normal:
-        return {"½½¶óÀÓ", 30, 6, 8};
-    case BattleType::Elite:
-        return {"¿À¿ì°Å", 60, 14, 20};
-    case BattleType::Event:
-        return {"±×¸²ÀÚ È¯¿µ", 45, 10, 16};
-    }
-
-    return {"½½¶óÀÓ", 30, 6, 8};
+    return enemy;
 }

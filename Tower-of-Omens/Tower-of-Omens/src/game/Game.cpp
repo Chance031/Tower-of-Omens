@@ -102,6 +102,15 @@ void Game::Run()
             const FloorLoopResult result = floorLoopScreen.Run(m_player, m_renderer, menuInput);
             m_state = result.nextState;
 
+            if (m_player.floor >= 10)
+            {
+                m_pendingPathChoice = PathChoice::Normal;
+                m_pendingBattleType = BattleType::Boss;
+                messageScreen.Show(m_renderer, menuInput, "10층", "더 이상 길을 고를 수 없다. 보스전이 시작된다.");
+                m_state = GameState::Battle;
+                break;
+            }
+
             if (result.selectedPath.has_value())
             {
                 m_pendingPathChoice = *result.selectedPath;
@@ -118,7 +127,7 @@ void Game::Run()
 
         case GameState::Battle:
         {
-            const Enemy enemy = m_enemyFactory.Create(m_pendingBattleType, m_pendingPathChoice);
+            const Enemy enemy = m_enemyFactory.Create(m_pendingBattleType, m_pendingPathChoice, m_player.floor);
             const BattleResult result = battleScreen.Run(m_player, enemy, m_pendingBattleType, m_renderer, menuInput);
 
             if (result == BattleResult::Defeat)
@@ -129,8 +138,15 @@ void Game::Run()
 
             if (result == BattleResult::Escape)
             {
-                messageScreen.Show(m_renderer, menuInput, "전투 이탈", "전투 화면 뼈대에서는 도주 시 타이틀로 돌아간다.");
+                messageScreen.Show(m_renderer, menuInput, "전투 이탈", "도주에 실패해 탐험이 종료되었다.");
                 m_state = GameState::Title;
+                break;
+            }
+
+            if (m_pendingBattleType == BattleType::Boss)
+            {
+                messageScreen.Show(m_renderer, menuInput, "보스 격파", "심연의 징조를 쓰러뜨렸다. 탑의 정상에 도달했다.");
+                m_state = GameState::Clear;
                 break;
             }
 
@@ -146,7 +162,7 @@ void Game::Run()
             break;
 
         case GameState::Clear:
-            messageScreen.Show(m_renderer, menuInput, "Clear", "Returning to title...");
+            messageScreen.Show(m_renderer, menuInput, "Clear", "탑을 정복했다. 타이틀로 돌아간다.");
             m_state = GameState::Title;
             break;
 

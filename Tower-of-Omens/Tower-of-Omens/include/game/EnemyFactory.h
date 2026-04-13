@@ -1,12 +1,12 @@
-#pragma once
+ï»¿#pragma once
 
 #include "game/Enemy.h"
 #include "game/Enums.h"
 
-// ÀüÅõ Á¾·ù¿Í ±æ ¼±ÅÃ¿¡ ¸Â´Â Àû »ı¼ºÀ» ´ã´çÇÑ´Ù.
+// ì „íˆ¬ ì¢…ë¥˜ì™€ ê¸¸ ì„ íƒì— ë§ëŠ” ì  ìƒì„±ì„ ë‹´ë‹¹í•œë‹¤.
 class EnemyFactory
 {
 public:
-    // ÀüÅõ Á¾·ù¿Í ±æ ¼±ÅÃÀ» ¹ÙÅÁÀ¸·Î Àû µ¥ÀÌÅÍ¸¦ ¸¸µç´Ù.
-    Enemy Create(BattleType battleType, PathChoice path) const;
+    // ì „íˆ¬ ì¢…ë¥˜ì™€ ê¸¸ ì„ íƒ, í˜„ì¬ ì¸µì„ ë°”íƒ•ìœ¼ë¡œ ì  ë°ì´í„°ë¥¼ ë§Œë“ ë‹¤.
+    Enemy Create(BattleType battleType, PathChoice path, int floor) const;
 };
