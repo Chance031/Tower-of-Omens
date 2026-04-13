@@ -64,6 +64,23 @@ std::string ComposeLogText(const std::vector<std::string>& logs)
     return stream.str();
 }
 
+// 보유 중인 유물 목록을 화면 출력용 문자열로 합친다.
+std::string ComposeRelicText(const Player& player)
+{
+    if (player.relicNames.empty())
+    {
+        return "없음\n";
+    }
+
+    std::ostringstream stream;
+    for (const std::string& relicName : player.relicNames)
+    {
+        stream << "- " << relicName << '\n';
+    }
+
+    return stream.str();
+}
+
 // 정비 화면 공통 상태 패널을 만든다.
 std::string ComposeStatusPanel(const Player& player)
 {
@@ -76,6 +93,7 @@ std::string ComposeStatusPanel(const Player& player)
     body << "스탯 포인트 " << player.statPoints << '\n';
     body << "무기 " << player.weaponName << " (ATK +" << player.weaponAtkBonus << ")\n";
     body << "방어구 " << player.armorName << " (DEF +" << player.armorDefBonus << ")\n";
+    body << "유물 " << player.relicNames.size() << "개\n";
     return body.str();
 }
 
@@ -121,6 +139,8 @@ std::string ComposeMainBody(const Player& player, bool canRecover, const std::ve
     std::ostringstream body;
     body << ComposeStatusPanel(player) << '\n';
     body << "------------------------------------------------------------\n";
+    body << "[유물 목록]\n";
+    body << ComposeRelicText(player) << '\n';
     body << "[정비 안내]\n";
     body << "이번 정비 방문에서 회복은 " << (canRecover ? "가능" : "불가") << "하다.\n\n";
     body << "[정비 기록]\n";
@@ -148,6 +168,8 @@ std::string ComposeStatusHubBody(const Player& player)
     std::ostringstream body;
     body << ComposeStatusPanel(player) << '\n';
     body << "------------------------------------------------------------\n";
+    body << "[유물 목록]\n";
+    body << ComposeRelicText(player) << '\n';
     body << "[상태창 안내]\n";
     body << "스탯 분배와 인벤토리 확인을 진행할 수 있다.\n";
     return body.str();

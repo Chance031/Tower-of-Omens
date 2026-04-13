@@ -3,6 +3,7 @@
 #include "game/Enums.h"
 
 #include <string>
+#include <vector>
 
 // 현재 단계에서 플레이어의 기본 상태를 보관하는 구조체다.
 struct Player
@@ -29,4 +30,5 @@ struct Player
     int bagWeaponAtkBonus = 0;
     std::string bagArmorName;
     int bagArmorDefBonus = 0;
+    std::vector<std::string> relicNames;
 };
