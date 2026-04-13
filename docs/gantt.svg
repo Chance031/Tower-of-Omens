@@ -1,62 +1,125 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="384" style="font-family:'Segoe UI',Arial,sans-serif;background:#1e1e2e;">
-<rect width="760" height="56" fill="#13131f"/>
-<text x="380" y="32" text-anchor="middle" font-size="16" font-weight="bold" fill="#cdd6f4">Tower of Omens — 개발 일지</text>
-<text x="380" y="48" text-anchor="middle" font-size="11" fill="#6c7086">2026-04-12</text>
-<rect x="0" y="56" width="760" height="1" fill="#313244"/>
-<rect x="0" y="66" width="760" height="36" fill="#181825"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="654" style="font-family:'Segoe UI',Arial,sans-serif;background:#1e1e2e;">
+<rect width="800" height="56" fill="#13131f"/>
+<text x="400" y="32" text-anchor="middle" font-size="16" font-weight="bold" fill="#cdd6f4">Tower of Omens — 개발 일지</text>
+<text x="400" y="48" text-anchor="middle" font-size="11" fill="#6c7086">2026-04-12 ~ 2026-04-13</text>
+<rect x="0" y="56" width="800" height="1" fill="#313244"/>
+<rect x="0" y="66" width="800" height="34" fill="#181825"/>
 <rect x="20" y="74" width="52" height="18" rx="4" fill="#A0A0C0" opacity="0.85"/>
 <text x="46" y="87" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">chore</text>
 <text x="84" y="88" font-size="12" fill="#89b4fa">초기 설정</text>
-<text x="174" y="88" font-size="12" fill="#cdd6f4">레포 생성, README·gitignore·MIT License 추가</text>
-<text x="740" y="88" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
-<rect x="20" y="101" width="720" height="1" fill="#313244" opacity="0.5"/>
-<rect x="0" y="102" width="760" height="36" fill="#1e1e2e"/>
-<rect x="20" y="110" width="52" height="18" rx="4" fill="#A0A0C0" opacity="0.85"/>
-<text x="46" y="123" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">chore</text>
-<text x="84" y="124" font-size="12" fill="#89b4fa">초기 설정</text>
-<text x="174" y="124" font-size="12" fill="#cdd6f4">플로우차트(draw.io) 및 솔루션 파일(.slnx) 추가</text>
-<text x="740" y="124" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
-<rect x="20" y="137" width="720" height="1" fill="#313244" opacity="0.5"/>
-<rect x="0" y="138" width="760" height="36" fill="#181825"/>
-<rect x="20" y="146" width="52" height="18" rx="4" fill="#A0A0C0" opacity="0.85"/>
-<text x="46" y="159" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">chore</text>
-<text x="84" y="160" font-size="12" fill="#89b4fa">자동화</text>
-<text x="174" y="160" font-size="12" fill="#cdd6f4">GitHub Actions 워크플로 및 update_gantt.py 추가</text>
-<text x="740" y="160" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
-<rect x="20" y="173" width="720" height="1" fill="#313244" opacity="0.5"/>
-<rect x="0" y="174" width="760" height="36" fill="#1e1e2e"/>
-<rect x="20" y="182" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
-<text x="46" y="195" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
-<text x="84" y="196" font-size="12" fill="#89b4fa">엔진</text>
-<text x="174" y="196" font-size="12" fill="#cdd6f4">ConsoleRenderer, MenuInput 구현</text>
-<text x="740" y="196" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
-<rect x="20" y="209" width="720" height="1" fill="#313244" opacity="0.5"/>
-<rect x="0" y="210" width="760" height="36" fill="#181825"/>
-<rect x="20" y="218" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
-<text x="46" y="231" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
-<text x="84" y="232" font-size="12" fill="#89b4fa">게임</text>
-<text x="174" y="232" font-size="12" fill="#cdd6f4">Game, Screen 클래스 초기 구현</text>
-<text x="740" y="232" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
-<rect x="20" y="245" width="720" height="1" fill="#313244" opacity="0.5"/>
-<rect x="0" y="246" width="760" height="36" fill="#1e1e2e"/>
-<rect x="20" y="254" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
-<text x="46" y="267" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
-<text x="84" y="268" font-size="12" fill="#89b4fa">구조</text>
-<text x="174" y="268" font-size="12" fill="#cdd6f4">engine/platform, game/screens 레이어 분리</text>
-<text x="740" y="268" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
-<rect x="20" y="281" width="720" height="1" fill="#313244" opacity="0.5"/>
-<rect x="0" y="282" width="760" height="36" fill="#181825"/>
-<rect x="20" y="290" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
-<text x="46" y="303" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
-<text x="84" y="304" font-size="12" fill="#89b4fa">게임</text>
-<text x="174" y="304" font-size="12" fill="#cdd6f4">Game.cpp에서 Screen 클래스 분리</text>
-<text x="740" y="304" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
-<rect x="20" y="317" width="720" height="1" fill="#313244" opacity="0.5"/>
-<rect x="0" y="318" width="760" height="36" fill="#1e1e2e"/>
-<rect x="20" y="326" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
-<text x="46" y="339" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
-<text x="84" y="340" font-size="12" fill="#89b4fa">전체</text>
-<text x="174" y="340" font-size="12" fill="#cdd6f4">코드 리팩토링 (MenuInput, FloorLoopScreen 등)</text>
-<text x="740" y="340" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
-<rect x="20" y="353" width="720" height="1" fill="#313244" opacity="0.5"/>
+<text x="168" y="88" font-size="12" fill="#cdd6f4">레포 생성, README·gitignore·MIT License …</text>
+<text x="780" y="88" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
+<rect x="20" y="99" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="100" width="800" height="34" fill="#1e1e2e"/>
+<rect x="20" y="108" width="52" height="18" rx="4" fill="#A0A0C0" opacity="0.85"/>
+<text x="46" y="121" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">chore</text>
+<text x="84" y="122" font-size="12" fill="#89b4fa">초기 설정</text>
+<text x="168" y="122" font-size="12" fill="#cdd6f4">플로우차트(draw.io) 및 솔루션 파일(.slnx) 추가</text>
+<text x="780" y="122" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
+<rect x="20" y="133" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="134" width="800" height="34" fill="#181825"/>
+<rect x="20" y="142" width="52" height="18" rx="4" fill="#A0A0C0" opacity="0.85"/>
+<text x="46" y="155" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">chore</text>
+<text x="84" y="156" font-size="12" fill="#89b4fa">자동화</text>
+<text x="168" y="156" font-size="12" fill="#cdd6f4">GitHub Actions 워크플로 및 update_gantt.p…</text>
+<text x="780" y="156" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
+<rect x="20" y="167" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="168" width="800" height="34" fill="#1e1e2e"/>
+<rect x="20" y="176" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
+<text x="46" y="189" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
+<text x="84" y="190" font-size="12" fill="#89b4fa">엔진</text>
+<text x="168" y="190" font-size="12" fill="#cdd6f4">ConsoleRenderer, MenuInput 구현</text>
+<text x="780" y="190" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
+<rect x="20" y="201" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="202" width="800" height="34" fill="#181825"/>
+<rect x="20" y="210" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
+<text x="46" y="223" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
+<text x="84" y="224" font-size="12" fill="#89b4fa">게임</text>
+<text x="168" y="224" font-size="12" fill="#cdd6f4">Game, Screen 클래스 초기 구현</text>
+<text x="780" y="224" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
+<rect x="20" y="235" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="236" width="800" height="34" fill="#1e1e2e"/>
+<rect x="20" y="244" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
+<text x="46" y="257" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
+<text x="84" y="258" font-size="12" fill="#89b4fa">구조</text>
+<text x="168" y="258" font-size="12" fill="#cdd6f4">engine/platform, game/screens 레이어 분리</text>
+<text x="780" y="258" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
+<rect x="20" y="269" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="270" width="800" height="34" fill="#181825"/>
+<rect x="20" y="278" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
+<text x="46" y="291" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
+<text x="84" y="292" font-size="12" fill="#89b4fa">게임</text>
+<text x="168" y="292" font-size="12" fill="#cdd6f4">Game.cpp에서 Screen 클래스 분리</text>
+<text x="780" y="292" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
+<rect x="20" y="303" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="304" width="800" height="34" fill="#1e1e2e"/>
+<rect x="20" y="312" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
+<text x="46" y="325" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
+<text x="84" y="326" font-size="12" fill="#89b4fa">전체</text>
+<text x="168" y="326" font-size="12" fill="#cdd6f4">코드 리팩토링 (MenuAction·pImpl·FloorLoopS…</text>
+<text x="780" y="326" text-anchor="end" font-size="10" fill="#6c7086">2026-04-12</text>
+<rect x="20" y="337" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="338" width="800" height="34" fill="#181825"/>
+<rect x="20" y="346" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
+<text x="46" y="359" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
+<text x="84" y="360" font-size="12" fill="#89b4fa">전체</text>
+<text x="168" y="360" font-size="12" fill="#cdd6f4">코드 개선 (MenuInput, ConsoleRenderer 구조…</text>
+<text x="780" y="360" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="371" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="372" width="800" height="34" fill="#1e1e2e"/>
+<rect x="20" y="380" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
+<text x="46" y="393" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
+<text x="84" y="394" font-size="12" fill="#89b4fa">전투</text>
+<text x="168" y="394" font-size="12" fill="#cdd6f4">Init Combat — 전투 시스템 초기 구현</text>
+<text x="780" y="394" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="405" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="406" width="800" height="34" fill="#181825"/>
+<rect x="20" y="414" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
+<text x="46" y="427" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
+<text x="84" y="428" font-size="12" fill="#89b4fa">게임</text>
+<text x="168" y="428" font-size="12" fill="#cdd6f4">게임 진행 순서 개선 (FloorLoop 흐름 정리)</text>
+<text x="780" y="428" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="439" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="440" width="800" height="34" fill="#1e1e2e"/>
+<rect x="20" y="448" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
+<text x="46" y="461" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
+<text x="84" y="462" font-size="12" fill="#89b4fa">전투</text>
+<text x="168" y="462" font-size="12" fill="#cdd6f4">Battle system 분리 (BattleSystem 클래스 독…</text>
+<text x="780" y="462" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="473" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="474" width="800" height="34" fill="#181825"/>
+<rect x="20" y="482" width="52" height="18" rx="4" fill="#E05C5C" opacity="0.85"/>
+<text x="46" y="495" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">fix</text>
+<text x="84" y="496" font-size="12" fill="#89b4fa">전투</text>
+<text x="168" y="496" font-size="12" fill="#cdd6f4">보스전 추가 / 게임 클리어 흐름 연결</text>
+<text x="780" y="496" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="507" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="508" width="800" height="34" fill="#1e1e2e"/>
+<rect x="20" y="516" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
+<text x="46" y="529" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
+<text x="84" y="530" font-size="12" fill="#89b4fa">전투</text>
+<text x="168" y="530" font-size="12" fill="#cdd6f4">Init 전투로그 — 전투 결과 로그 출력</text>
+<text x="780" y="530" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="541" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="542" width="800" height="34" fill="#181825"/>
+<rect x="20" y="550" width="52" height="18" rx="4" fill="#50B86C" opacity="0.85"/>
+<text x="46" y="563" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">init</text>
+<text x="84" y="564" font-size="12" fill="#89b4fa">아이템</text>
+<text x="168" y="564" font-size="12" fill="#cdd6f4">아이템 시스템 초기 구현</text>
+<text x="780" y="564" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="575" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="576" width="800" height="34" fill="#1e1e2e"/>
+<rect x="20" y="584" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
+<text x="46" y="597" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
+<text x="84" y="598" font-size="12" fill="#89b4fa">직업</text>
+<text x="168" y="598" font-size="12" fill="#cdd6f4">직업별 스킬 구현</text>
+<text x="780" y="598" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="609" width="760" height="1" fill="#313244" opacity="0.4"/>
+<rect x="0" y="610" width="800" height="34" fill="#181825"/>
+<rect x="20" y="618" width="52" height="18" rx="4" fill="#4A90D9" opacity="0.85"/>
+<text x="46" y="631" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">feat</text>
+<text x="84" y="632" font-size="12" fill="#89b4fa">직업</text>
+<text x="168" y="632" font-size="12" fill="#cdd6f4">직업별 패시브 구현</text>
+<text x="780" y="632" text-anchor="end" font-size="10" fill="#89dceb">2026-04-13</text>
+<rect x="20" y="643" width="760" height="1" fill="#313244" opacity="0.4"/>
 </svg>
