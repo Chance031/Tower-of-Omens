@@ -1,11 +1,11 @@
-ï»¿#include "game/screens/FloorLoopScreen.h"
+#include "game/screens/FloorLoopScreen.h"
 
 #include "engine/platform/MenuInput.h"
 
 #include <sstream>
 #include <vector>
 
-// ì¸µ ì§„í–‰ í™”ë©´ì„ í‘œì‹œí•˜ê³  ë‹¤ìŒ ì´ë™ ë°©í–¥ì„ ê²°ì •í•œë‹¤.
+// Ãş ÁøÇà È­¸éÀ» Ç¥½ÃÇÏ°í ´ÙÀ½ ÀÌµ¿ ¹æÇâÀ» °áÁ¤ÇÑ´Ù.
 FloorLoopResult FloorLoopScreen::Run(const Player& player, const ConsoleRenderer& renderer, const MenuInput& input) const
 {
     if (player.floor >= 10)
@@ -20,24 +20,24 @@ FloorLoopResult FloorLoopScreen::Run(const Player& player, const ConsoleRenderer
 
     const std::vector<std::string> options =
     {
-        "ì•ˆì •ì ì¸ ê¸¸",
-        "ê°•í•œ ê¸°ì²™",
-        "ë¯¸ì§€ì˜ ê¸¸"
+        "¾ÈÁ¤ÀûÀÎ ±æ",
+        "°­ÇÑ ±âÃ´",
+        "¹ÌÁöÀÇ ±æ"
     };
     int selected = 0;
 
     std::ostringstream body;
-    body << "í˜„ì¬ ì¸µ: " << player.floor << '\n';
-    body << "í”Œë ˆì´ì–´: " << player.name << '\n';
+    body << "ÇöÀç Ãş: " << player.floor << '\n';
+    body << "ÇÃ·¹ÀÌ¾î: " << player.name << '\n';
     body << "HP: " << player.hp << " | MP: " << player.mp << " | Gold: " << player.gold << "\n\n";
-    body << "ì´ë²ˆ ì¸µì—ì„œ ì´ë™í•  ê¸¸ì„ ì„ íƒí•œë‹¤.\n";
-    body << "ì•ˆì •ì ì¸ ê¸¸: ì•½í•œ ì ê³¼ ë¬´ë‚œí•œ ë³´ìƒ.\n";
-    body << "ê°•í•œ ê¸°ì²™: ê°•í•œ ì ê³¼ í° ë³´ìƒ.\n";
-    body << "ë¯¸ì§€ì˜ ê¸¸: íŠ¹ìˆ˜í•œ ì ê³¼ íšŒë³µ ë³´ë„ˆìŠ¤.\n";
+    body << "ÀÌ¹ø Ãş¿¡¼­ ÀÌµ¿ÇÒ ±æÀ» ¼±ÅÃÇÑ´Ù.\n";
+    body << "¾ÈÁ¤ÀûÀÎ ±æ: ¾àÇÑ Àû°ú ¹«³­ÇÑ º¸»ó.\n";
+    body << "°­ÇÑ ±âÃ´: °­ÇÑ Àû°ú Å« º¸»ó.\n";
+    body << "¹ÌÁöÀÇ ±æ: Æ¯¼öÇÑ Àû°ú È¸º¹ º¸³Ê½º.\n";
 
     for (;;)
     {
-        renderer.Present(renderer.ComposeMenuFrame("ì¸µ ì§„í–‰", body.str(), options, selected));
+        renderer.Present(renderer.ComposeMenuFrame("Ãş ÁøÇà", body.str(), options, selected));
 
         const MenuAction action = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
         if (action.type == MenuResultType::Confirm)
