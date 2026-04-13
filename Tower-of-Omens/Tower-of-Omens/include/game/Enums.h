@@ -17,3 +17,12 @@ enum class JobClass
     Warrior,
     Mage
 };
+
+// 층에서 선택할 수 있는 길의 종류다.
+enum class PathChoice
+{
+    Normal,
+    Safe,
+    Dangerous,
+    Unknown
+};

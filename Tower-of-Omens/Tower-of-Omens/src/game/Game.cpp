@@ -1,5 +1,34 @@
 #include "game/Game.h"
 
+#include "engine/platform/MenuInput.h"
+#include "game/screens/FloorLoopScreen.h"
+#include "game/screens/JobSelectScreen.h"
+#include "game/screens/MessageScreen.h"
+#include "game/screens/TitleScreen.h"
+
+#include <string>
+
+namespace
+{
+// 선택한 길 종류를 화면에 표시할 이름으로 변환한다.
+std::string PathName(PathChoice path)
+{
+    switch (path)
+    {
+    case PathChoice::Normal:
+        return "일반 던전";
+    case PathChoice::Safe:
+        return "안정적인 길";
+    case PathChoice::Dangerous:
+        return "강한 기척";
+    case PathChoice::Unknown:
+        return "미지의 길";
+    }
+
+    return "알 수 없는 길";
+}
+}
+
 // 게임 객체를 기본 상태로 생성한다.
 Game::Game()
     : m_state(GameState::Title)
@@ -17,17 +46,23 @@ void Game::Initialize()
 // 현재 게임 상태에 맞는 흐름을 실행한다.
 void Game::Run()
 {
+    MenuInput menuInput;
+    TitleScreen titleScreen;
+    JobSelectScreen jobSelectScreen;
+    FloorLoopScreen floorLoopScreen;
+    MessageScreen messageScreen;
+
     while (m_state != GameState::Exit)
     {
         switch (m_state)
         {
         case GameState::Title:
-            m_state = m_titleScreen.Run(m_renderer, m_menuInput) ? GameState::JobSelect : GameState::Exit;
+            m_state = titleScreen.Run(m_renderer, menuInput) ? GameState::JobSelect : GameState::Exit;
             break;
 
         case GameState::JobSelect:
         {
-            const auto selectedJob = m_jobSelectScreen.Run(m_renderer, m_menuInput);
+            const auto selectedJob = jobSelectScreen.Run(m_renderer, menuInput);
             if (!selectedJob.has_value())
             {
                 m_state = GameState::Title;
@@ -40,16 +75,29 @@ void Game::Run()
         }
 
         case GameState::FloorLoop:
-            m_state = m_floorLoopScreen.Run(m_player, m_renderer, m_menuInput) ? GameState::Title : GameState::Exit;
+        {
+            const FloorLoopResult result = floorLoopScreen.Run(m_player, m_renderer, menuInput);
+            m_state = result.nextState;
+
+            if (result.selectedPath.has_value())
+            {
+                messageScreen.Show(
+                    m_renderer,
+                    menuInput,
+                    "길 선택",
+                    PathName(*result.selectedPath) + "으로 진입한다. 다음 단계에서 이 길에 맞는 전투나 이벤트를 연결할 예정이다.");
+                m_state = GameState::FloorLoop;
+            }
             break;
+        }
 
         case GameState::GameOver:
-            m_messageScreen.Show(m_renderer, m_menuInput, "Game Over", "Returning to title...");
+            messageScreen.Show(m_renderer, menuInput, "Game Over", "Returning to title...");
             m_state = GameState::Title;
             break;
 
         case GameState::Clear:
-            m_messageScreen.Show(m_renderer, m_menuInput, "Clear", "Returning to title...");
+            messageScreen.Show(m_renderer, menuInput, "Clear", "Returning to title...");
             m_state = GameState::Title;
             break;
 
@@ -85,5 +133,5 @@ void Game::StartRun(JobClass job)
 // 직업 enum 값을 화면에 표시할 이름으로 변환한다.
 std::string Game::JobName(JobClass job) const
 {
-    return (job == JobClass::Warrior) ? "Warrior" : "Mage";
+    return (job == JobClass::Warrior) ? "전사" : "마법사";
 }

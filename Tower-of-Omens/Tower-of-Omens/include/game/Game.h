@@ -1,13 +1,8 @@
 #pragma once
 
 #include "engine/platform/ConsoleRenderer.h"
-#include "engine/platform/MenuInput.h"
 #include "game/Enums.h"
 #include "game/Player.h"
-#include "game/screens/FloorLoopScreen.h"
-#include "game/screens/JobSelectScreen.h"
-#include "game/screens/MessageScreen.h"
-#include "game/screens/TitleScreen.h"
 
 #include <string>
 
@@ -28,11 +23,6 @@ private:
     GameState m_state;
     Player m_player;
     ConsoleRenderer m_renderer;
-    MenuInput m_menuInput;
-    TitleScreen m_titleScreen;
-    JobSelectScreen m_jobSelectScreen;
-    FloorLoopScreen m_floorLoopScreen;
-    MessageScreen m_messageScreen;
 
     // 실행 시작 시 플레이어의 기본 능력치를 세팅한다.
     void StartRun(JobClass job);

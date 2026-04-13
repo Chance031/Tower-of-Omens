@@ -3,7 +3,7 @@
 #include <conio.h>
 
 // 메뉴 선택에 필요한 키 입력을 읽어 결과로 변환한다.
-int MenuInput::ReadMenuSelection(int currentSelected, int optionCount) const
+MenuAction MenuInput::ReadMenuSelection(int currentSelected, int optionCount) const
 {
     int selected = currentSelected;
 
@@ -12,12 +12,12 @@ int MenuInput::ReadMenuSelection(int currentSelected, int optionCount) const
         const int key = _getch();
         if (key == 13)
         {
-            return selected + 1;
+            return {MenuResultType::Confirm, selected};
         }
 
         if (key == 27)
         {
-            return 0;
+            return {MenuResultType::Cancel, currentSelected};
         }
 
         if (key == 0 || key == 224)
@@ -26,13 +26,13 @@ int MenuInput::ReadMenuSelection(int currentSelected, int optionCount) const
             if (extended == 72)
             {
                 selected = (selected - 1 + optionCount) % optionCount;
-                return -(selected + 1);
+                return {MenuResultType::Move, selected};
             }
 
             if (extended == 80)
             {
                 selected = (selected + 1) % optionCount;
-                return -(selected + 1);
+                return {MenuResultType::Move, selected};
             }
         }
     }

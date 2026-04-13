@@ -16,17 +16,17 @@ bool TitleScreen::Run(const ConsoleRenderer& renderer, const MenuInput& input) c
             options,
             selected));
 
-        const int result = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
-        if (result > 0)
-        {
-            return result == 1;
-        }
-
-        if (result == 0)
+        const MenuAction action = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
+        if (action.type == MenuResultType::Cancel)
         {
             return false;
         }
 
-        selected = -result - 1;
+        if (action.type == MenuResultType::Confirm)
+        {
+            return action.index == 0;
+        }
+
+        selected = action.index;
     }
 }

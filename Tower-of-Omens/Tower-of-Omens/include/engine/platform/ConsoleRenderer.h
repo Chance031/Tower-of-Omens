@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -20,8 +21,6 @@ public:
         int selectedIndex) const;
 
 private:
-    void* m_stdoutHandle;
-    unsigned long m_originalMode;
-    bool m_isInitialized;
-    mutable int m_lastRenderedLineCount;
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
 };

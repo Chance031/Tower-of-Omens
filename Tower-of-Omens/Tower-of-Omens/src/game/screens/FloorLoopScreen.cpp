@@ -1,35 +1,53 @@
 #include "game/screens/FloorLoopScreen.h"
 
+#include "engine/platform/MenuInput.h"
+
 #include <sstream>
 #include <vector>
 
 // 층 진행 화면을 표시하고 다음 이동 방향을 결정한다.
-bool FloorLoopScreen::Run(const Player& player, const ConsoleRenderer& renderer, const MenuInput& input) const
+FloorLoopResult FloorLoopScreen::Run(const Player& player, const ConsoleRenderer& renderer, const MenuInput& input) const
 {
-    const std::vector<std::string> options = {"Back to Title", "Exit"};
+    if (player.floor == 1)
+    {
+        return {GameState::FloorLoop, PathChoice::Normal};
+    }
+
+    const std::vector<std::string> options =
+    {
+        "안정적인 길",
+        "강한 기척",
+        "미지의 길"
+    };
     int selected = 0;
 
     std::ostringstream body;
-    body << "Player: " << player.name << '\n';
-    body << "Floor: " << player.floor << '\n';
+    body << "현재 층: " << player.floor << '\n';
+    body << "플레이어: " << player.name << '\n';
     body << "HP: " << player.hp << " | MP: " << player.mp << " | Gold: " << player.gold << "\n\n";
-    body << "Next step: battle / event / reward / preparation will be added next.\n";
+    body << "이번 층에서 이동할 길을 선택한다.\n";
 
     for (;;)
     {
-        renderer.Present(renderer.ComposeMenuFrame("Floor Loop", body.str(), options, selected));
+        renderer.Present(renderer.ComposeMenuFrame("층 진행", body.str(), options, selected));
 
-        const int result = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
-        if (result == 0)
+        const MenuAction action = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
+        if (action.type == MenuResultType::Confirm)
         {
-            return true;
+            switch (action.index)
+            {
+            case 0:
+                return {GameState::FloorLoop, PathChoice::Safe};
+            case 1:
+                return {GameState::FloorLoop, PathChoice::Dangerous};
+            default:
+                return {GameState::FloorLoop, PathChoice::Unknown};
+            }
         }
 
-        if (result > 0)
+        if (action.type == MenuResultType::Move)
         {
-            return result == 1;
+            selected = action.index;
         }
-
-        selected = -result - 1;
     }
 }

@@ -5,28 +5,28 @@
 // 직업 선택 화면을 표시하고 선택 결과를 돌려준다.
 std::optional<JobClass> JobSelectScreen::Run(const ConsoleRenderer& renderer, const MenuInput& input) const
 {
-    const std::vector<std::string> options = {"Warrior", "Mage"};
+    const std::vector<std::string> options = {"전사", "마법사"};
     int selected = 0;
 
     for (;;)
     {
         renderer.Present(renderer.ComposeMenuFrame(
-            "Choose Job",
-            "Choose a job for the first run.",
+            "직업 선택",
+            "첫 탐험에 사용할 직업을 선택한다.",
             options,
             selected));
 
-        const int result = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
-        if (result == 0)
+        const MenuAction action = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
+        if (action.type == MenuResultType::Cancel)
         {
             return std::nullopt;
         }
 
-        if (result > 0)
+        if (action.type == MenuResultType::Confirm)
         {
-            return (result == 1) ? JobClass::Warrior : JobClass::Mage;
+            return (action.index == 0) ? JobClass::Warrior : JobClass::Mage;
         }
 
-        selected = -result - 1;
+        selected = action.index;
     }
 }
