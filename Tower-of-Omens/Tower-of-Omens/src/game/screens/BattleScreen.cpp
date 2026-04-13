@@ -25,15 +25,17 @@ std::string BattleTypeName(BattleType battleType)
     return "전투";
 }
 
-// 현재 선택한 행동의 설명 문구를 만든다.
-std::string ActionDescription(int actionIndex)
+// 직업과 선택에 따라 행동 설명 문구를 만든다.
+std::string ActionDescription(JobClass job, int actionIndex)
 {
     switch (actionIndex)
     {
     case 0:
         return "무기를 휘둘러 적을 공격한다.";
     case 1:
-        return "MP 10을 소모해 강한 일격을 가한다.";
+        return (job == JobClass::Warrior)
+            ? "MP 8을 소모해 강철 태세를 취하고 큰 일격을 가한다."
+            : "MP 14를 소모해 마력 폭발을 일으킨다.";
     case 2:
         return "회복약이나 마나약을 사용한다.";
     case 3:
@@ -125,7 +127,7 @@ BattleResult BattleScreen::Run(
         body << enemy.name << " | HP " << enemyHp << '/' << enemy.hp << " | ATK " << enemy.atk;
         body << " | 보상 " << enemy.goldReward << " Gold\n\n";
         body << "[행동 설명]\n";
-        body << ActionDescription(selected) << "\n\n";
+        body << ActionDescription(player.job, selected) << "\n\n";
         body << "[전투 로그]\n";
         body << ComposeLogText(battleLogs);
 
@@ -160,15 +162,35 @@ BattleResult BattleScreen::Run(
             break;
 
         case 1:
-            if (player.mp < 10)
+            if (player.job == JobClass::Warrior)
             {
-                PushBattleLog(battleLogs, "MP가 부족해 스킬을 사용할 수 없다.");
-                continue;
+                const int skillCost = 8;
+                if (player.mp < skillCost)
+                {
+                    PushBattleLog(battleLogs, "MP가 부족해 강철 태세를 사용할 수 없다.");
+                    continue;
+                }
+
+                player.mp -= skillCost;
+                guarded = true;
+                playerDamage = ComputeDamage(player.atk + 5, enemy.atk / 3);
+                enemyHp = std::max(0, enemyHp - playerDamage);
+                PushBattleLog(battleLogs, "강철 태세로 " + std::to_string(playerDamage) + "의 피해를 주고 방어를 강화했다.");
             }
-            player.mp -= 10;
-            playerDamage = ComputeDamage(player.atk + 8, enemy.atk / 4);
-            enemyHp = std::max(0, enemyHp - playerDamage);
-            PushBattleLog(battleLogs, "스킬이 적중해 " + std::to_string(playerDamage) + "의 피해를 주었다.");
+            else
+            {
+                const int skillCost = 14;
+                if (player.mp < skillCost)
+                {
+                    PushBattleLog(battleLogs, "MP가 부족해 마력 폭발을 사용할 수 없다.");
+                    continue;
+                }
+
+                player.mp -= skillCost;
+                playerDamage = ComputeDamage(player.atk + 16, enemy.atk / 5);
+                enemyHp = std::max(0, enemyHp - playerDamage);
+                PushBattleLog(battleLogs, "마력 폭발이 적중해 " + std::to_string(playerDamage) + "의 큰 피해를 주었다.");
+            }
             break;
 
         case 2:
@@ -225,7 +247,7 @@ BattleResult BattleScreen::Run(
             clearBody << enemy.name << " | HP 0/" << enemy.hp << " | ATK " << enemy.atk;
             clearBody << " | 보상 " << enemy.goldReward << " Gold\n\n";
             clearBody << "[행동 설명]\n";
-            clearBody << ActionDescription(selected) << "\n\n";
+            clearBody << ActionDescription(player.job, selected) << "\n\n";
             clearBody << "[전투 로그]\n";
             clearBody << ComposeLogText(battleLogs);
             renderer.Present(renderer.ComposeMenuFrame("전투", clearBody.str(), options, selected));
