@@ -189,6 +189,8 @@ void Game::StartRun(JobClass job)
         m_player.def = 10;
         m_player.maxHp = 130;
         m_player.maxMp = 30;
+        m_player.potionCount = 2;
+        m_player.etherCount = 1;
     }
     else
     {
@@ -196,6 +198,8 @@ void Game::StartRun(JobClass job)
         m_player.def = 4;
         m_player.maxHp = 90;
         m_player.maxMp = 80;
+        m_player.potionCount = 1;
+        m_player.etherCount = 2;
     }
 
     m_player.hp = m_player.maxHp;

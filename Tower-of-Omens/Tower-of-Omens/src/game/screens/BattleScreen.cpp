@@ -35,7 +35,7 @@ std::string ActionDescription(int actionIndex)
     case 1:
         return "MP 10을 소모해 강한 일격을 가한다.";
     case 2:
-        return "아직 사용할 아이템이 없다.";
+        return "회복약이나 마나약을 사용한다.";
     case 3:
         return "방어 자세를 취해 받는 피해를 줄인다.";
     case 4:
@@ -119,7 +119,8 @@ BattleResult BattleScreen::Run(
         body << player.name << " | 현재 층 " << player.floor << '\n';
         body << "HP " << player.hp << '/' << player.maxHp;
         body << " | MP " << player.mp << '/' << player.maxMp << '\n';
-        body << "ATK " << player.atk << " | DEF " << player.def << " | GOLD " << player.gold << "\n\n";
+        body << "ATK " << player.atk << " | DEF " << player.def << " | GOLD " << player.gold << '\n';
+        body << "회복약 " << player.potionCount << " | 마나약 " << player.etherCount << "\n\n";
         body << "[적]\n";
         body << enemy.name << " | HP " << enemyHp << '/' << enemy.hp << " | ATK " << enemy.atk;
         body << " | 보상 " << enemy.goldReward << " Gold\n\n";
@@ -171,7 +172,23 @@ BattleResult BattleScreen::Run(
             break;
 
         case 2:
-            PushBattleLog(battleLogs, "아직 사용할 아이템이 없다.");
+            if (player.hp < player.maxHp && player.potionCount > 0)
+            {
+                player.hp = std::min(player.maxHp, player.hp + 35);
+                --player.potionCount;
+                PushBattleLog(battleLogs, "회복약을 사용해 HP를 회복했다.");
+                continue;
+            }
+
+            if (player.mp < player.maxMp && player.etherCount > 0)
+            {
+                player.mp = std::min(player.maxMp, player.mp + 20);
+                --player.etherCount;
+                PushBattleLog(battleLogs, "마나약을 사용해 MP를 회복했다.");
+                continue;
+            }
+
+            PushBattleLog(battleLogs, "사용할 수 있는 소모품이 없다.");
             continue;
 
         case 3:
@@ -202,7 +219,8 @@ BattleResult BattleScreen::Run(
             clearBody << player.name << " | 현재 층 " << player.floor << '\n';
             clearBody << "HP " << player.hp << '/' << player.maxHp;
             clearBody << " | MP " << player.mp << '/' << player.maxMp << '\n';
-            clearBody << "ATK " << player.atk << " | DEF " << player.def << " | GOLD " << player.gold << "\n\n";
+            clearBody << "ATK " << player.atk << " | DEF " << player.def << " | GOLD " << player.gold << '\n';
+            clearBody << "회복약 " << player.potionCount << " | 마나약 " << player.etherCount << "\n\n";
             clearBody << "[적]\n";
             clearBody << enemy.name << " | HP 0/" << enemy.hp << " | ATK " << enemy.atk;
             clearBody << " | 보상 " << enemy.goldReward << " Gold\n\n";
