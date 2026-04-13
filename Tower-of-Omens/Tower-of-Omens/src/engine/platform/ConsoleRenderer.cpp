@@ -141,23 +141,28 @@ std::string ConsoleRenderer::ComposeMenuFrame(
     const std::vector<std::string>& options,
     int selectedIndex) const
 {
+    const std::vector<std::string> bodyLines = SplitLines(body);
     std::ostringstream frame;
-    frame << '[' << title << "]\n";
-    if (!body.empty())
+
+    frame << "============================================================\n";
+    frame << "TOWER OF OMENS :: " << title << '\n';
+    frame << "------------------------------------------------------------\n";
+
+    for (const std::string& line : bodyLines)
     {
-        frame << body;
-        if (body.back() != '\n')
+        frame << line << '\n';
+    }
+
+    if (!options.empty())
+    {
+        frame << "------------------------------------------------------------\n";
+        for (std::size_t i = 0; i < options.size(); ++i)
         {
-            frame << '\n';
+            frame << ((static_cast<int>(i) == selectedIndex) ? "> " : "  ");
+            frame << options[i] << '\n';
         }
-        frame << '\n';
     }
 
-    for (std::size_t i = 0; i < options.size(); ++i)
-    {
-        frame << ((static_cast<int>(i) == selectedIndex) ? "> " : "  ");
-        frame << options[i] << '\n';
-    }
-
+    frame << "============================================================\n";
     return frame.str();
 }
