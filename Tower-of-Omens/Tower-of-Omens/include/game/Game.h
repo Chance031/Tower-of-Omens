@@ -44,7 +44,6 @@ private:
         BattleScreen& battleScreen,
         MessageScreen& messageScreen,
         const MenuInput& input);
-    GameState RunObservationEvent(MessageScreen& messageScreen, const MenuInput& input);
     GameState RunGameOverScreen(const MenuInput& input);
     std::string ResolveBattleReward(const Enemy& enemy, BattleType battleType, PathChoice path, const MenuInput& input);
 };

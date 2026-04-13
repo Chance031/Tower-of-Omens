@@ -2,6 +2,7 @@
 
 #include "engine/platform/MenuInput.h"
 #include "game/screens/BattleScreen.h"
+#include "game/screens/EventScreen.h"
 #include "game/screens/FloorLoopScreen.h"
 #include "game/screens/JobSelectScreen.h"
 #include "game/screens/MaintenanceScreen.h"
@@ -236,6 +237,7 @@ void Game::Run()
     MaintenanceScreen maintenanceScreen;
     FloorLoopScreen floorLoopScreen;
     BattleScreen battleScreen;
+    EventScreen eventScreen;
     MessageScreen messageScreen;
 
     while (m_state != GameState::Exit)
@@ -296,7 +298,7 @@ void Game::Run()
             break;
 
         case GameState::Event:
-            m_state = RunObservationEvent(messageScreen, menuInput);
+            m_state = eventScreen.RunObservationEvent(m_player, messageScreen, m_renderer, menuInput);
             break;
 
         case GameState::Reward:
@@ -451,35 +453,6 @@ GameState Game::RunEncounterState(
     return GameState::Reward;
 }
 
-GameState Game::RunObservationEvent(MessageScreen& messageScreen, const MenuInput& input)
-{
-    const std::string observationRelicName = "관찰 유물";
-    const bool alreadyOwned =
-        std::find(m_player.relicNames.begin(), m_player.relicNames.end(), observationRelicName) != m_player.relicNames.end();
-
-    std::ostringstream body;
-    body << "희미한 수정 구슬이 놓인 방을 발견했다.\n";
-    body << "구슬 표면에는 적의 다음 움직임을 비추는 문양이 떠오른다.\n\n";
-
-    if (!alreadyOwned)
-    {
-        m_player.relicNames.push_back(observationRelicName);
-        body << "[획득 유물]\n";
-        body << observationRelicName << '\n';
-        body << "적이 다음 턴에 공격, 방어, 회복 중 무엇을 할지 미리 볼 수 있다.\n";
-    }
-    else
-    {
-        m_player.gold += 25;
-        m_player.hp = std::min(m_player.maxHp, m_player.hp + 10);
-        body << "이미 관찰 유물을 보유하고 있다.\n";
-        body << "대신 Gold 25와 HP 10을 회복했다.\n";
-    }
-
-    messageScreen.Show(m_renderer, input, "이벤트", body.str());
-    ++m_player.floor;
-    return GameState::Prep;
-}
 GameState Game::RunGameOverScreen(const MenuInput& input)
 {
     const std::vector<std::string> options = {"다시 도전", "타이틀로"};
