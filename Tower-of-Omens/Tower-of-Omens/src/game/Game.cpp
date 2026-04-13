@@ -185,6 +185,8 @@ void Game::StartRun(JobClass job)
     m_player = {};
     m_player.job = job;
     m_player.name = JobName(job);
+    m_player.level = 1;
+    m_player.statPoints = 0;
     m_player.floor = 1;
     m_player.gold = 50;
 
@@ -196,6 +198,8 @@ void Game::StartRun(JobClass job)
         m_player.maxMp = 30;
         m_player.potionCount = 2;
         m_player.etherCount = 1;
+        m_player.weaponName = "훈련용 검";
+        m_player.armorName = "견습 방어구";
     }
     else
     {
@@ -205,6 +209,8 @@ void Game::StartRun(JobClass job)
         m_player.maxMp = 80;
         m_player.potionCount = 1;
         m_player.etherCount = 2;
+        m_player.weaponName = "초심자 지팡이";
+        m_player.armorName = "견습 로브";
     }
 
     m_player.hp = m_player.maxHp;
@@ -237,31 +243,19 @@ BattleType Game::DetermineBattleType(PathChoice path) const
 // 승리 후 직업별 성장치를 적용한다.
 std::string Game::ApplyJobGrowth()
 {
+    ++m_player.level;
+    m_player.statPoints += 3;
+
     std::ostringstream growth;
+    growth << "\n레벨이 " << m_player.level << "이(가) 되었고, 분배 가능한 스탯 포인트 3을 획득했다.";
 
-    if (m_player.job == JobClass::Warrior)
+    if (m_player.job == JobClass::Warrior && m_player.level == 5)
     {
-        m_player.maxHp += 8;
-        m_player.hp = std::min(m_player.maxHp, m_player.hp + 8);
-        ++m_player.def;
-        growth << "\n전사의 성장으로 최대 HP가 8, DEF가 1 상승했다.";
-
-        if (m_player.floor == 5)
-        {
-            growth << "\n5층의 벽을 넘으며 전사의 두 번째 기술 '파쇄 돌격'이 해금되었다.";
-        }
+        growth << "\n전사의 두 번째 기술 '파쇄 돌격'이 해금되었다.";
     }
-    else
+    else if (m_player.job == JobClass::Mage && m_player.level == 5)
     {
-        m_player.maxMp += 8;
-        m_player.mp = std::min(m_player.maxMp, m_player.mp + 8);
-        ++m_player.atk;
-        growth << "\n마법사의 성장으로 최대 MP가 8, ATK가 1 상승했다.";
-
-        if (m_player.floor == 5)
-        {
-            growth << "\n5층의 벽을 넘으며 마법사의 두 번째 기술 '운석 낙하'가 해금되었다.";
-        }
+        growth << "\n마법사의 두 번째 기술 '운석 낙하'가 해금되었다.";
     }
 
     return growth.str();
@@ -297,4 +291,3 @@ std::string Game::ApplyBattleReward(const Enemy& enemy, BattleType battleType, P
     message << ApplyJobGrowth();
     return message.str();
 }
-
