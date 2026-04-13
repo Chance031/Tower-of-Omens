@@ -13,4 +13,8 @@ struct Player
     int hp = 0;
     int mp = 0;
     int gold = 0;
+    int atk = 0;
+    int def = 0;
+    int maxHp = 0;
+    int maxMp = 0;
 };

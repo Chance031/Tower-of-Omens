@@ -6,6 +6,7 @@ enum class GameState
     Title,
     JobSelect,
     FloorLoop,
+    Battle,
     GameOver,
     Clear,
     Exit
@@ -25,4 +26,20 @@ enum class PathChoice
     Safe,
     Dangerous,
     Unknown
+};
+
+// 전투의 종류를 나타낸다.
+enum class BattleType
+{
+    Normal,
+    Elite,
+    Event
+};
+
+// 전투 화면이 돌려주는 결과를 나타낸다.
+enum class BattleResult
+{
+    Victory,
+    Defeat,
+    Escape
 };

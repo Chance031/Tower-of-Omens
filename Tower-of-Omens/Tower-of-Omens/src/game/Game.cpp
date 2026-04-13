@@ -1,6 +1,7 @@
 #include "game/Game.h"
 
 #include "engine/platform/MenuInput.h"
+#include "game/screens/BattleScreen.h"
 #include "game/screens/FloorLoopScreen.h"
 #include "game/screens/JobSelectScreen.h"
 #include "game/screens/MessageScreen.h"
@@ -31,7 +32,8 @@ std::string PathName(PathChoice path)
 
 // 게임 객체를 기본 상태로 생성한다.
 Game::Game()
-    : m_state(GameState::Title)
+    : m_state(GameState::Title),
+      m_pendingBattleType(BattleType::Normal)
 {
 }
 
@@ -40,6 +42,7 @@ void Game::Initialize()
 {
     m_state = GameState::Title;
     m_player = {};
+    m_pendingBattleType = BattleType::Normal;
     m_renderer.Initialize();
 }
 
@@ -50,6 +53,7 @@ void Game::Run()
     TitleScreen titleScreen;
     JobSelectScreen jobSelectScreen;
     FloorLoopScreen floorLoopScreen;
+    BattleScreen battleScreen;
     MessageScreen messageScreen;
 
     while (m_state != GameState::Exit)
@@ -81,13 +85,38 @@ void Game::Run()
 
             if (result.selectedPath.has_value())
             {
+                m_pendingBattleType = DetermineBattleType(*result.selectedPath);
                 messageScreen.Show(
                     m_renderer,
                     menuInput,
                     "길 선택",
-                    PathName(*result.selectedPath) + "으로 진입한다. 다음 단계에서 이 길에 맞는 전투나 이벤트를 연결할 예정이다.");
-                m_state = GameState::FloorLoop;
+                    PathName(*result.selectedPath) + "으로 진입한다. 전투 화면으로 이동한다.");
+                m_state = GameState::Battle;
             }
+            break;
+        }
+
+        case GameState::Battle:
+        {
+            const Enemy enemy = CreateEnemy(m_pendingBattleType);
+            const BattleResult result = battleScreen.Run(m_player, enemy, m_pendingBattleType, m_renderer, menuInput);
+
+            if (result == BattleResult::Defeat)
+            {
+                m_state = GameState::GameOver;
+                break;
+            }
+
+            if (result == BattleResult::Escape)
+            {
+                messageScreen.Show(m_renderer, menuInput, "전투 이탈", "전투 화면 뼈대에서는 도주 시 타이틀로 돌아간다.");
+                m_state = GameState::Title;
+                break;
+            }
+
+            ++m_player.floor;
+            messageScreen.Show(m_renderer, menuInput, "전투 결과", "전투에서 승리했다. 다음 층으로 이동한다.");
+            m_state = GameState::FloorLoop;
             break;
         }
 
@@ -120,18 +149,58 @@ void Game::StartRun(JobClass job)
 
     if (job == JobClass::Warrior)
     {
-        m_player.hp = 130;
-        m_player.mp = 30;
+        m_player.atk = 15;
+        m_player.def = 10;
+        m_player.maxHp = 130;
+        m_player.maxMp = 30;
     }
     else
     {
-        m_player.hp = 90;
-        m_player.mp = 80;
+        m_player.atk = 25;
+        m_player.def = 4;
+        m_player.maxHp = 90;
+        m_player.maxMp = 80;
     }
+
+    m_player.hp = m_player.maxHp;
+    m_player.mp = m_player.maxMp;
 }
 
 // 직업 enum 값을 화면에 표시할 이름으로 변환한다.
 std::string Game::JobName(JobClass job) const
 {
     return (job == JobClass::Warrior) ? "전사" : "마법사";
+}
+
+// 길 선택 결과를 바탕으로 다음 전투 종류를 결정한다.
+BattleType Game::DetermineBattleType(PathChoice path) const
+{
+    switch (path)
+    {
+    case PathChoice::Normal:
+    case PathChoice::Safe:
+        return BattleType::Normal;
+    case PathChoice::Dangerous:
+        return BattleType::Elite;
+    case PathChoice::Unknown:
+        return BattleType::Event;
+    }
+
+    return BattleType::Normal;
+}
+
+// 전투 종류에 맞는 임시 적 데이터를 생성한다.
+Enemy Game::CreateEnemy(BattleType battleType) const
+{
+    switch (battleType)
+    {
+    case BattleType::Normal:
+        return {"슬라임", 30, 6};
+    case BattleType::Elite:
+        return {"오우거", 60, 14};
+    case BattleType::Event:
+        return {"그림자 환영", 45, 10};
+    }
+
+    return {"슬라임", 30, 6};
 }
