@@ -62,7 +62,8 @@ std::string PassiveDescription(JobClass job)
 
 bool HasObservationRelic(const Player& player)
 {
-    return std::find(player.relicNames.begin(), player.relicNames.end(), "관찰 유물") != player.relicNames.end();
+    return std::find(player.relicNames.begin(), player.relicNames.end(), "관찰 유물") != player.relicNames.end() ||
+        std::find(player.relicNames.begin(), player.relicNames.end(), "관찰의 눈") != player.relicNames.end();
 }
 
 std::string EnemyIntentName(EnemyIntent intent)
@@ -185,10 +186,19 @@ std::vector<SkillDefinition> BuildSkillList(JobClass job, int level)
 
 std::vector<ItemDefinition> BuildItemList(const Player& player)
 {
-    return {
-        {"회복약", "HP를 35 회복한다.", player.potionCount},
-        {"마나약", "MP를 20 회복한다.", player.etherCount}
-    };
+    std::vector<ItemDefinition> items;
+
+    if (player.potionCount > 0)
+    {
+        items.push_back({"회복약", "HP를 35 회복한다.", player.potionCount});
+    }
+
+    if (player.etherCount > 0)
+    {
+        items.push_back({"마나약", "MP를 20 회복한다.", player.etherCount});
+    }
+
+    return items;
 }
 
 std::string ActionDescription(JobClass job, int level, int actionIndex)
@@ -202,7 +212,7 @@ std::string ActionDescription(JobClass job, int level, int actionIndex)
             ? ((level >= 5) ? "사용 가능한 전투 기술을 선택한다. 강철 태세와 파쇄 돌격을 사용할 수 있다." : "사용 가능한 전투 기술을 선택한다. 현재는 강철 태세를 사용할 수 있다.")
             : ((level >= 5) ? "사용 가능한 마법 기술을 선택한다. 마력 폭발과 운석 낙하를 사용할 수 있다." : "사용 가능한 마법 기술을 선택한다. 현재는 마력 폭발을 사용할 수 있다.");
     case 2:
-        return "사용 가능한 소모품 목록을 열어 하나를 선택한다.";
+        return "보유 중인 소모품 목록을 열어 하나를 선택한다. 없는 아이템은 표시되지 않는다.";
     case 3:
         return "방어 자세를 취해 받는 피해를 줄인다.";
     case 4:
@@ -478,6 +488,12 @@ BattleResult BattleScreen::Run(
         case 2:
         {
             const std::vector<ItemDefinition> items = BuildItemList(player);
+            if (items.empty())
+            {
+                PushBattleLog(battleLogs, "전투 중 사용할 수 있는 아이템이 없다.");
+                continue;
+            }
+
             int itemSelected = 0;
 
             for (;;)
@@ -506,15 +522,11 @@ BattleResult BattleScreen::Run(
                     break;
                 }
 
+                const ItemDefinition& chosenItem = items[itemAction.index];
                 performedAction = true;
-                if (itemAction.index == 0)
-                {
-                    if (player.potionCount <= 0)
-                    {
-                        PushBattleLog(battleLogs, "회복약이 부족하다.");
-                        break;
-                    }
 
+                if (chosenItem.name == "회복약")
+                {
                     if (player.hp >= player.maxHp)
                     {
                         PushBattleLog(battleLogs, "HP가 가득 차 있어 회복약을 사용할 수 없다.");
@@ -527,21 +539,21 @@ BattleResult BattleScreen::Run(
                     break;
                 }
 
-                if (player.etherCount <= 0)
+                if (chosenItem.name == "마나약")
                 {
-                    PushBattleLog(battleLogs, "마나약이 부족하다.");
+                    if (player.mp >= player.maxMp)
+                    {
+                        PushBattleLog(battleLogs, "MP가 가득 차 있어 마나약을 사용할 수 없다.");
+                        break;
+                    }
+
+                    player.mp = std::min(player.maxMp, player.mp + 20);
+                    --player.etherCount;
+                    PushBattleLog(battleLogs, "마나약을 사용해 MP를 회복했다.");
                     break;
                 }
 
-                if (player.mp >= player.maxMp)
-                {
-                    PushBattleLog(battleLogs, "MP가 가득 차 있어 마나약을 사용할 수 없다.");
-                    break;
-                }
-
-                player.mp = std::min(player.maxMp, player.mp + 20);
-                --player.etherCount;
-                PushBattleLog(battleLogs, "마나약을 사용해 MP를 회복했다.");
+                PushBattleLog(battleLogs, "이 아이템은 아직 전투에서 사용할 수 없다.");
                 break;
             }
 

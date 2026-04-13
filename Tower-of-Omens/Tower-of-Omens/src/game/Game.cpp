@@ -298,7 +298,7 @@ void Game::Run()
             break;
 
         case GameState::Event:
-            m_state = eventScreen.RunObservationEvent(m_player, messageScreen, m_renderer, menuInput);
+            m_state = eventScreen.Run(m_player, messageScreen, m_renderer, menuInput);
             break;
 
         case GameState::Reward:
