@@ -29,6 +29,35 @@ struct RelicDefinition
     std::string description;
 };
 
+void SetConsumableCount(Player& player, const std::string& id, int count)
+{
+    for (ConsumableStack& stack : player.consumables)
+    {
+        if (stack.id == id)
+        {
+            stack.count = count;
+            return;
+        }
+    }
+
+    player.consumables.push_back({id, count});
+}
+
+void AddConsumableCount(Player& player, const std::string& id, int amount)
+{
+    for (ConsumableStack& stack : player.consumables)
+    {
+        if (stack.id == id)
+        {
+            stack.count += amount;
+            return;
+        }
+    }
+
+    player.consumables.push_back({id, amount});
+}
+
+
 std::string PathName(PathChoice path)
 {
     switch (path)
@@ -132,12 +161,14 @@ std::string ApplyRewardItem(Player& player, const RewardItem& reward)
     if (reward.name == "회복약 꾸러미")
     {
         player.potionCount += 2;
+        AddConsumableCount(player, "201", 2);
         return "회복약 2개를 획득했다.";
     }
 
     if (reward.name == "마나약 꾸러미")
     {
         player.etherCount += 2;
+        AddConsumableCount(player, "203", 2);
         return "마나약 2개를 획득했다.";
     }
 
@@ -373,6 +404,9 @@ void Game::StartRun(JobClass job)
 
     m_player.hp = m_player.maxHp;
     m_player.mp = m_player.maxMp;
+    m_player.consumables.clear();
+    SetConsumableCount(m_player, "201", m_player.potionCount);
+    SetConsumableCount(m_player, "203", m_player.etherCount);
 }
 
 std::string Game::JobName(JobClass job) const

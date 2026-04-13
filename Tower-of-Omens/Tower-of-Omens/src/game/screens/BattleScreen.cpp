@@ -259,6 +259,14 @@ std::string ComposeStatusHeadline(const Player& player)
     return body.str();
 }
 
+std::string ComposeBattleTitle(const Player& player, const std::string& baseTitle)
+{
+    std::ostringstream title;
+    title << baseTitle << " | HP " << player.hp << '/' << player.maxHp;
+    title << " | MP " << player.mp << '/' << player.maxMp;
+    return title.str();
+}
+
 std::string ComposePlayerPanel(const Player& player)
 {
     std::ostringstream body;
@@ -380,7 +388,7 @@ BattleResult BattleScreen::Run(
     for (;;)
     {
         renderer.Present(renderer.ComposeMenuFrame(
-            "전투",
+            ComposeBattleTitle(player, "전투"),
             ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, selected, battleLogs),
             options,
             selected));
@@ -440,7 +448,7 @@ BattleResult BattleScreen::Run(
                 }
 
                 renderer.Present(renderer.ComposeMenuFrame(
-                    "스킬 선택",
+                    ComposeBattleTitle(player, "스킬 선택"),
                     ComposeSkillMenuBody(player, skills[skillSelected]),
                     skillOptions,
                     skillSelected));
@@ -505,7 +513,7 @@ BattleResult BattleScreen::Run(
                 }
 
                 renderer.Present(renderer.ComposeMenuFrame(
-                    "아이템 선택",
+                    ComposeBattleTitle(player, "아이템 선택"),
                     ComposeItemMenuBody(player, items[itemSelected]),
                     itemOptions,
                     itemSelected));
@@ -583,7 +591,7 @@ BattleResult BattleScreen::Run(
         {
             PushBattleLog(battleLogs, enemy.name + "을(를) 쓰러뜨렸다.");
             renderer.Present(renderer.ComposeMenuFrame(
-                "전투 승리",
+                ComposeBattleTitle(player, "전투 승리"),
                 ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, selected, battleLogs),
                 options,
                 selected));
