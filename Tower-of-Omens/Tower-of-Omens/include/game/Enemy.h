@@ -8,4 +8,5 @@ struct Enemy
     std::string name;
     int hp = 0;
     int atk = 0;
+    int goldReward = 0;
 };

@@ -26,6 +26,9 @@ FloorLoopResult FloorLoopScreen::Run(const Player& player, const ConsoleRenderer
     body << "플레이어: " << player.name << '\n';
     body << "HP: " << player.hp << " | MP: " << player.mp << " | Gold: " << player.gold << "\n\n";
     body << "이번 층에서 이동할 길을 선택한다.\n";
+    body << "안정적인 길: 약한 적과 무난한 보상.\n";
+    body << "강한 기척: 강한 적과 큰 보상.\n";
+    body << "미지의 길: 특수한 적과 회복 보너스.\n";
 
     for (;;)
     {
