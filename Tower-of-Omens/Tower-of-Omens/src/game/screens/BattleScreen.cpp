@@ -25,6 +25,20 @@ std::string BattleTypeName(BattleType battleType)
     return "전투";
 }
 
+// 직업별 패시브 이름을 반환한다.
+std::string PassiveName(JobClass job)
+{
+    return (job == JobClass::Warrior) ? "불굴" : "마력 순환";
+}
+
+// 직업별 패시브 설명을 반환한다.
+std::string PassiveDescription(JobClass job)
+{
+    return (job == JobClass::Warrior)
+        ? "받는 피해가 항상 2 감소한다."
+        : "행동 후 MP를 3 회복한다.";
+}
+
 // 직업과 선택에 따라 행동 설명 문구를 만든다.
 std::string ActionDescription(JobClass job, int actionIndex)
 {
@@ -122,7 +136,8 @@ BattleResult BattleScreen::Run(
         body << "HP " << player.hp << '/' << player.maxHp;
         body << " | MP " << player.mp << '/' << player.maxMp << '\n';
         body << "ATK " << player.atk << " | DEF " << player.def << " | GOLD " << player.gold << '\n';
-        body << "회복약 " << player.potionCount << " | 마나약 " << player.etherCount << "\n\n";
+        body << "회복약 " << player.potionCount << " | 마나약 " << player.etherCount << '\n';
+        body << "패시브 " << PassiveName(player.job) << ": " << PassiveDescription(player.job) << "\n\n";
         body << "[적]\n";
         body << enemy.name << " | HP " << enemyHp << '/' << enemy.hp << " | ATK " << enemy.atk;
         body << " | 보상 " << enemy.goldReward << " Gold\n\n";
@@ -152,16 +167,19 @@ BattleResult BattleScreen::Run(
 
         bool guarded = false;
         int playerDamage = 0;
+        bool performedAction = false;
 
         switch (action.index)
         {
         case 0:
+            performedAction = true;
             playerDamage = ComputeDamage(player.atk, enemy.atk / 3);
             enemyHp = std::max(0, enemyHp - playerDamage);
             PushBattleLog(battleLogs, "공격이 적중해 " + std::to_string(playerDamage) + "의 피해를 주었다.");
             break;
 
         case 1:
+            performedAction = true;
             if (player.job == JobClass::Warrior)
             {
                 const int skillCost = 8;
@@ -196,6 +214,7 @@ BattleResult BattleScreen::Run(
         case 2:
             if (player.hp < player.maxHp && player.potionCount > 0)
             {
+                performedAction = true;
                 player.hp = std::min(player.maxHp, player.hp + 35);
                 --player.potionCount;
                 PushBattleLog(battleLogs, "회복약을 사용해 HP를 회복했다.");
@@ -204,6 +223,7 @@ BattleResult BattleScreen::Run(
 
             if (player.mp < player.maxMp && player.etherCount > 0)
             {
+                performedAction = true;
                 player.mp = std::min(player.maxMp, player.mp + 20);
                 --player.etherCount;
                 PushBattleLog(battleLogs, "마나약을 사용해 MP를 회복했다.");
@@ -214,6 +234,7 @@ BattleResult BattleScreen::Run(
             continue;
 
         case 3:
+            performedAction = true;
             guarded = true;
             PushBattleLog(battleLogs, "방어 자세를 취했다.");
             break;
@@ -242,7 +263,8 @@ BattleResult BattleScreen::Run(
             clearBody << "HP " << player.hp << '/' << player.maxHp;
             clearBody << " | MP " << player.mp << '/' << player.maxMp << '\n';
             clearBody << "ATK " << player.atk << " | DEF " << player.def << " | GOLD " << player.gold << '\n';
-            clearBody << "회복약 " << player.potionCount << " | 마나약 " << player.etherCount << "\n\n";
+            clearBody << "회복약 " << player.potionCount << " | 마나약 " << player.etherCount << '\n';
+            clearBody << "패시브 " << PassiveName(player.job) << ": " << PassiveDescription(player.job) << "\n\n";
             clearBody << "[적]\n";
             clearBody << enemy.name << " | HP 0/" << enemy.hp << " | ATK " << enemy.atk;
             clearBody << " | 보상 " << enemy.goldReward << " Gold\n\n";
@@ -255,7 +277,13 @@ BattleResult BattleScreen::Run(
         }
 
         const int defenseValue = guarded ? player.def + 6 : player.def;
-        const int enemyDamage = ComputeDamage(enemy.atk, defenseValue);
+        int enemyDamage = ComputeDamage(enemy.atk, defenseValue);
+
+        if (player.job == JobClass::Warrior)
+        {
+            enemyDamage = std::max(1, enemyDamage - 2);
+        }
+
         player.hp = std::max(0, player.hp - enemyDamage);
 
         if (guarded)
@@ -265,6 +293,16 @@ BattleResult BattleScreen::Run(
         else
         {
             PushBattleLog(battleLogs, "적의 반격으로 " + std::to_string(enemyDamage) + "의 피해를 입었다.");
+        }
+
+        if (player.job == JobClass::Mage && performedAction)
+        {
+            const int recoveredMp = std::min(3, player.maxMp - player.mp);
+            if (recoveredMp > 0)
+            {
+                player.mp += recoveredMp;
+                PushBattleLog(battleLogs, "마력 순환으로 MP를 " + std::to_string(recoveredMp) + " 회복했다.");
+            }
         }
 
         if (player.hp <= 0)
