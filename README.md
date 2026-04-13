@@ -35,7 +35,16 @@ C++로 만드는 콘솔 로그라이크 RPG 프로젝트
 | 2026-04-12 | feat | 게임 | Game, TitleScreen, JobSelectScreen, FloorLoopScreen, MessageScreen 구현 |
 | 2026-04-12 | fix | 구조 | 파일 구조 정리 (engine/platform, game/screens 레이어 분리) |
 | 2026-04-12 | fix | 게임 | Game.cpp에서 Screen 클래스 분리 리팩토링 |
-| 2026-04-12 | fix | 전체 | 코드 리팩토링 (MenuInput 규약, FloorLoopScreen 반환 타입 등) |
+| 2026-04-12 | fix | 전체 | 코드 리팩토링 (MenuAction 타입 도입, pImpl 패턴, FloorLoopScreen 반환 타입 개선) |
+| 2026-04-13 | fix | 전체 | 코드 개선 (MenuInput, ConsoleRenderer 구조 정리) |
+| 2026-04-13 | feat | 전투 | Init Combat — 전투 시스템 초기 구현 |
+| 2026-04-13 | fix | 게임 | 게임 진행 순서 개선 (FloorLoop 흐름 정리) |
+| 2026-04-13 | feat | 전투 | Battle system 분리 (BattleSystem 클래스 독립) |
+| 2026-04-13 | fix | 전투 | 보스전 추가 / 게임 클리어 흐름 연결 |
+| 2026-04-13 | feat | 전투 | Init 전투로그 — 전투 결과 로그 출력 구현 |
+| 2026-04-13 | init | 아이템 | 아이템 시스템 초기 구현 |
+| 2026-04-13 | feat | 직업 | 직업별 스킬 구현 |
+| 2026-04-13 | feat | 직업 | 직업별 패시브 구현 |
 <!-- LOG_END -->
 
 ---
