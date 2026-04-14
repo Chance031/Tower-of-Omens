@@ -1,0 +1,10 @@
+pattern_id,enemy_name,battle_type,status_type,apply_difficulty,duration_turns,trigger_condition,trigger_chance,description
+1001,슬라임,Normal,none,none,0,none,0,기본 패턴 없음 — 일반 공격만 사용
+1002,고블린 정찰병,Normal,속박,11,1,hp_below_50,30,HP가 50% 이하로 떨어지면 30% 확률로 속박 부여 (1턴)
+1003,광포한 오우거,Normal,화상,11,2,always,25,매 턴 25% 확률로 화상 부여 (2턴)
+1004,그림자 환영,Normal|Event,속박,12,2,every_2turns,40,2턴마다 40% 확률로 속박 부여 (2턴)
+1005,오우거,Elite,화상,12,2,hp_below_70,45,HP가 70% 이하가 되면 45% 확률로 화상 부여 (2턴)
+1006,오우거,Elite,속박,12,1,always,20,매 턴 20% 확률로 속박 부여 (1턴)
+1007,심연의 징조,Boss,화상,13,3,phase2,60,Phase 2 (HP 50% 이하) 진입 시 60% 확률로 강화 화상 부여 (3턴)
+1008,심연의 징조,Boss,속박,13,2,phase2,50,Phase 2 진입 시 50% 확률로 강화 속박 부여 (2턴)
+1009,심연의 징조,Boss,화상,13,3,every_3turns,35,3턴마다 35% 확률로 화상 부여 (3턴) — Phase 1 포함
