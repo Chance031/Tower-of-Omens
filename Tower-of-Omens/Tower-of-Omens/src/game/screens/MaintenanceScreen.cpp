@@ -1,28 +1,303 @@
-#include "game/screens/MaintenanceScreen.h"
+ï»¿#include "game/screens/MaintenanceScreen.h"
+#include "game/ConsumableData.h"
+
+#define NOMINMAX
+#include <Windows.h>
 
 #include <algorithm>
+#include <fstream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace
 {
+enum class ShopItemType
+{
+    Consumable,
+    Weapon,
+    Armor
+};
+
 struct ShopItem
 {
+    ShopItemType type = ShopItemType::Consumable;
+    std::string id;
     std::string name;
     std::string description;
     int price = 0;
     int ownedCount = 0;
+    int atkBonus = 0;
+    int defBonus = 0;
 };
 
 struct InventoryItem
 {
+    std::string id;
     std::string name;
     std::string description;
     int count = 0;
+    bool isWeapon = false;
+    bool isArmor = false;
 };
 
-// ÇöÀç ¼öÄ¡¸¦ ºñÀ² ¹Ù ÇüÅÂÀÇ ¹®ÀÚ¿­·Î ¹Ù²Û´Ù.
+std::string Trim(const std::string& value)
+{
+    std::size_t start = 0;
+    while (start < value.size() && (value[start] == ' ' || value[start] == '\t' || value[start] == '\r'))
+    {
+        ++start;
+    }
+
+    std::size_t end = value.size();
+    while (end > start && (value[end - 1] == ' ' || value[end - 1] == '\t' || value[end - 1] == '\r'))
+    {
+        --end;
+    }
+
+    return value.substr(start, end - start);
+}
+
+std::vector<std::string> ParseCsvLine(const std::string& line)
+{
+    std::vector<std::string> columns;
+    std::string current;
+    bool inQuotes = false;
+
+    for (std::size_t i = 0; i < line.size(); ++i)
+    {
+        const char ch = line[i];
+        if (ch == '"')
+        {
+            if (inQuotes && i + 1 < line.size() && line[i + 1] == '"')
+            {
+                current.push_back('"');
+                ++i;
+                continue;
+            }
+
+            inQuotes = !inQuotes;
+            continue;
+        }
+
+        if (ch == ',' && !inQuotes)
+        {
+            columns.push_back(current);
+            current.clear();
+            continue;
+        }
+
+        current.push_back(ch);
+    }
+
+    columns.push_back(current);
+    return columns;
+}
+
+int ToInt(const std::string& value, int fallback = 0)
+{
+    try
+    {
+        return std::stoi(Trim(value));
+    }
+    catch (...)
+    {
+        return fallback;
+    }
+}
+
+std::string ConvertUtf8ToConsoleEncoding(const std::string& utf8Text)
+{
+    if (utf8Text.empty())
+    {
+        return "";
+    }
+
+    const int wideLength = MultiByteToWideChar(CP_UTF8, 0, utf8Text.c_str(), static_cast<int>(utf8Text.size()), nullptr, 0);
+    if (wideLength <= 0)
+    {
+        return utf8Text;
+    }
+
+    std::wstring wideText(static_cast<std::size_t>(wideLength), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8Text.c_str(), static_cast<int>(utf8Text.size()), wideText.data(), wideLength);
+
+    const int encodedLength = WideCharToMultiByte(949, 0, wideText.c_str(), wideLength, nullptr, 0, nullptr, nullptr);
+    if (encodedLength <= 0)
+    {
+        return utf8Text;
+    }
+
+    std::string converted(static_cast<std::size_t>(encodedLength), '\0');
+    WideCharToMultiByte(949, 0, wideText.c_str(), wideLength, converted.data(), encodedLength, nullptr, nullptr);
+    return converted;
+}
+
+std::string LoadTextFile(const std::string& path)
+{
+    std::ifstream file(path, std::ios::binary);
+    if (!file)
+    {
+        return "";
+    }
+
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+
+    std::string content = buffer.str();
+    if (content.size() >= 3 &&
+        static_cast<unsigned char>(content[0]) == 0xEF &&
+        static_cast<unsigned char>(content[1]) == 0xBB &&
+        static_cast<unsigned char>(content[2]) == 0xBF)
+    {
+        content.erase(0, 3);
+    }
+
+    return ConvertUtf8ToConsoleEncoding(content);
+}
+
+std::string ResolveCsvPath(const std::string& fileName)
+{
+    const std::vector<std::string> candidates = {
+        "assets/data/" + fileName,
+        "../assets/data/" + fileName,
+        "../../assets/data/" + fileName,
+        "Tower-of-Omens/assets/data/" + fileName,
+    };
+
+    for (const std::string& path : candidates)
+    {
+        std::ifstream file(path, std::ios::binary);
+        if (file)
+        {
+            return path;
+        }
+    }
+
+    return "";
+}
+
+std::unordered_map<std::string, std::size_t> BuildHeaderMap(const std::vector<std::string>& headers)
+{
+    std::unordered_map<std::string, std::size_t> map;
+    for (std::size_t i = 0; i < headers.size(); ++i)
+    {
+        map[Trim(headers[i])] = i;
+    }
+    return map;
+}
+
+std::string GetColumn(
+    const std::vector<std::string>& columns,
+    const std::unordered_map<std::string, std::size_t>& headers,
+    const std::string& key)
+{
+    const auto found = headers.find(key);
+    if (found == headers.end() || found->second >= columns.size())
+    {
+        return "";
+    }
+
+    return Trim(columns[found->second]);
+}
+
+bool JobMatches(const Player& player, const std::string& restriction)
+{
+    if (restriction.empty() || restriction == "none")
+    {
+        return true;
+    }
+
+    return (restriction == "Warrior" && player.job == JobClass::Warrior) ||
+        (restriction == "Mage" && player.job == JobClass::Mage);
+}
+
+int CountOwnedCopies(const Player& player, const std::string& name)
+{
+    int count = 0;
+    if (player.weaponName == name || player.bagWeaponName == name)
+    {
+        ++count;
+    }
+
+    if (player.armorName == name || player.bagArmorName == name)
+    {
+        ++count;
+    }
+
+    return count;
+}
+
+std::vector<ShopItem> LoadEquipmentShopItems(const Player& player, const std::string& fileName, ShopItemType type)
+{
+    const std::string path = ResolveCsvPath(fileName);
+    if (path.empty())
+    {
+        return {};
+    }
+
+    const std::string content = LoadTextFile(path);
+    if (content.empty())
+    {
+        return {};
+    }
+
+    std::vector<ShopItem> items;
+    std::stringstream lines(content);
+    std::string line;
+    bool isHeader = true;
+    std::unordered_map<std::string, std::size_t> headerMap;
+
+    while (std::getline(lines, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+        {
+            line.pop_back();
+        }
+
+        if (Trim(line).empty())
+        {
+            continue;
+        }
+
+        const std::vector<std::string> columns = ParseCsvLine(line);
+        if (isHeader)
+        {
+            headerMap = BuildHeaderMap(columns);
+            isHeader = false;
+            continue;
+        }
+
+        const int buyPrice = ToInt(GetColumn(columns, headerMap, "buy_price"), 0);
+        const int floorMin = ToInt(GetColumn(columns, headerMap, "floor_min"), 1);
+        const int floorMax = ToInt(GetColumn(columns, headerMap, "floor_max"), 999);
+        const std::string jobRestriction = GetColumn(columns, headerMap, "job_restriction");
+
+        if (buyPrice <= 0 || player.floor < floorMin || player.floor > floorMax || !JobMatches(player, jobRestriction))
+        {
+            continue;
+        }
+
+        ShopItem item;
+        item.type = type;
+        item.id = GetColumn(columns, headerMap, "id");
+        item.name = GetColumn(columns, headerMap, "name");
+        item.description = GetColumn(columns, headerMap, "description");
+        item.price = buyPrice;
+        item.ownedCount = CountOwnedCopies(player, item.name);
+        item.atkBonus = ToInt(GetColumn(columns, headerMap, "atk_bonus"), 0);
+        item.defBonus = ToInt(GetColumn(columns, headerMap, "def_bonus"), 0);
+
+        if (!item.name.empty())
+        {
+            items.push_back(item);
+        }
+    }
+
+    return items;
+}
+
 std::string MakeBar(int current, int maximum, int width, char filled, char empty)
 {
     if (maximum <= 0)
@@ -35,24 +310,21 @@ std::string MakeBar(int current, int maximum, int width, char filled, char empty
     return std::string(filledCount, filled) + std::string(width - filledCount, empty);
 }
 
-// ÃÖ±Ù Á¤ºñ ·Î±×¸¸ ³²±âµµ·Ï »õ Ç×¸ñÀ» Ãß°¡ÇÑ´Ù.
 void PushMaintenanceLog(std::vector<std::string>& logs, const std::string& line)
 {
     logs.push_back(line);
 
-    const std::size_t maxLogCount = 6;
-    if (logs.size() > maxLogCount)
+    if (logs.size() > 6)
     {
         logs.erase(logs.begin());
     }
 }
 
-// ·Î±× ¸ñ·ÏÀ» È­¸é Ãâ·Â¿ë ¹®ÀÚ¿­·Î ÇÕÄ£´Ù.
 std::string ComposeLogText(const std::vector<std::string>& logs)
 {
     if (logs.empty())
     {
-        return "- ¾ÆÁ÷ Á¤ºñ ±â·ÏÀÌ ¾ø´Ù.\n";
+        return "- ì•„ì§ ì •ë¹„ ê¸°ë¡ì´ ì—†ë‹¤.\n";
     }
 
     std::ostringstream stream;
@@ -64,12 +336,11 @@ std::string ComposeLogText(const std::vector<std::string>& logs)
     return stream.str();
 }
 
-// º¸À¯ ÁßÀÎ À¯¹° ¸ñ·ÏÀ» È­¸é Ãâ·Â¿ë ¹®ÀÚ¿­·Î ÇÕÄ£´Ù.
 std::string ComposeRelicText(const Player& player)
 {
     if (player.relicNames.empty())
     {
-        return "¾øÀ½\n";
+        return "ì—†ìŒ\n";
     }
 
     std::ostringstream stream;
@@ -81,126 +352,129 @@ std::string ComposeRelicText(const Player& player)
     return stream.str();
 }
 
-// Á¤ºñ È­¸é °øÅë »óÅÂ ÆĞ³ÎÀ» ¸¸µç´Ù.
 std::string ComposeStatusPanel(const Player& player)
 {
     std::ostringstream body;
-    body << "[Å½ÇèÀÚ »óÅÂ]\n";
-    body << player.name << " | Ãş " << player.floor << " | Lv " << player.level << '\n';
+    body << "[íƒí—˜ì ìƒíƒœ]\n";
+    body << player.name << " | ì¸µ " << player.floor << " | Lv " << player.level << '\n';
     body << "HP [" << MakeBar(player.hp, player.maxHp, 20, '#', '.') << "] " << player.hp << '/' << player.maxHp << '\n';
     body << "MP [" << MakeBar(player.mp, player.maxMp, 20, '@', '.') << "] " << player.mp << '/' << player.maxMp << '\n';
-    body << "ATK " << player.atk << " | DEF " << player.def << " | GOLD " << player.gold << '\n';
-    body << "½ºÅÈ Æ÷ÀÎÆ® " << player.statPoints << '\n';
-    body << "¹«±â " << player.weaponName << " (ATK +" << player.weaponAtkBonus << ")\n";
-    body << "¹æ¾î±¸ " << player.armorName << " (DEF +" << player.armorDefBonus << ")\n";
-    body << "À¯¹° " << player.relicNames.size() << "°³\n";
+    body << "STR " << player.strength << " | AGI " << player.agility << " | INT " << player.intelligence << " | MND " << player.spirit << '\n';
+    body << "GOLD " << player.gold << " | ìŠ¤íƒ¯ í¬ì¸íŠ¸ " << player.statPoints << '\n';
+    body << "ë¬´ê¸° " << player.weaponName << " (ê³µê²© ë³´ì • +" << player.weaponAtkBonus << ")\n";
+    body << "ë°©ì–´êµ¬ " << player.armorName << " (ë°©ì–´ ë³´ì • +" << player.armorDefBonus << ")\n";
+    body << "ìœ ë¬¼ " << player.relicNames.size() << "ê°œ\n";
     return body.str();
 }
 
-// ÇöÀç Á÷¾÷¿¡ ¸Â´Â »óÁ¡ ¹°Ç° ¸ñ·ÏÀ» ¸¸µç´Ù.
 std::vector<ShopItem> BuildShopItems(const Player& player)
 {
     std::vector<ShopItem> items;
-    items.push_back({"È¸º¹¾à", "HP¸¦ 35 È¸º¹ÇÏ´Â ¼Ò¸ğÇ°ÀÌ´Ù.", 15, player.potionCount});
-    items.push_back({"¸¶³ª¾à", "MP¸¦ 20 È¸º¹ÇÏ´Â ¼Ò¸ğÇ°ÀÌ´Ù.", 15, player.etherCount});
 
-    if (player.job == JobClass::Warrior)
+    for (const ConsumableInfo& consumable : LoadConsumableCatalog())
     {
-        items.push_back({"¿¹¸®ÇÑ °Ë", "°ø°İ·Â +3ÀÌ ºÙÀº ¿¹ºñ ¹«±â´Ù.", 40, player.bagWeaponName.empty() ? 0 : 1});
-        items.push_back({"°­Ã¶ ¹æÆĞ", "¹æ¾î·Â +3ÀÌ ºÙÀº ¿¹ºñ ¹æ¾î±¸´Ù.", 40, player.bagArmorName.empty() ? 0 : 1});
-    }
-    else
-    {
-        items.push_back({"ÁıÁßÀÇ ÁöÆÎÀÌ", "°ø°İ·Â +4°¡ ºÙÀº ¿¹ºñ ¹«±â´Ù.", 40, player.bagWeaponName.empty() ? 0 : 1});
-        items.push_back({"¸¶·Â ¸ÁÅä", "¹æ¾î·Â +3ÀÌ ºÙÀº ¿¹ºñ ¹æ¾î±¸´Ù.", 40, player.bagArmorName.empty() ? 0 : 1});
+        if (consumable.buyPrice <= 0)
+        {
+            continue;
+        }
+
+        items.push_back({
+            ShopItemType::Consumable,
+            consumable.id,
+            consumable.name,
+            consumable.description,
+            consumable.buyPrice,
+            GetConsumableCount(player, consumable.id),
+            0,
+            0});
     }
 
+    const std::vector<ShopItem> weaponItems = LoadEquipmentShopItems(player, "items_weapon.csv", ShopItemType::Weapon);
+    const std::vector<ShopItem> armorItems = LoadEquipmentShopItems(player, "items_armor.csv", ShopItemType::Armor);
+    items.insert(items.end(), weaponItems.begin(), weaponItems.end());
+    items.insert(items.end(), armorItems.begin(), armorItems.end());
     return items;
 }
 
-// ÇöÀç ÇÃ·¹ÀÌ¾îÀÇ ÀÎº¥Åä¸® ¸ñ·ÏÀ» ¸¸µç´Ù.
 std::vector<InventoryItem> BuildInventoryItems(const Player& player)
 {
     std::vector<InventoryItem> items;
 
-    if (player.potionCount > 0)
+    for (const ConsumableInfo& consumable : BuildOwnedConsumables(player))
     {
-        items.push_back({"È¸º¹¾à", "HP¸¦ 35 È¸º¹ÇÏ´Â ¼Ò¸ğÇ°ÀÌ´Ù.", player.potionCount});
-    }
+        const int count = GetConsumableCount(player, consumable.id);
+        if (count <= 0)
+        {
+            continue;
+        }
 
-    if (player.etherCount > 0)
-    {
-        items.push_back({"¸¶³ª¾à", "MP¸¦ 20 È¸º¹ÇÏ´Â ¼Ò¸ğÇ°ÀÌ´Ù.", player.etherCount});
+        items.push_back({consumable.id, consumable.name, consumable.description, count, false, false});
     }
 
     if (!player.bagWeaponName.empty())
     {
-        items.push_back({player.bagWeaponName, "ÀåÂø ½Ã ¹«±â º¸³Ê½º°¡ Àû¿ëµÈ´Ù.", 1});
+        items.push_back({"", player.bagWeaponName, "ì¥ì°© ì‹œ ë¬´ê¸° ë³´ë„ˆìŠ¤ê°€ ì ìš©ëœë‹¤.", 1, true, false});
     }
 
     if (!player.bagArmorName.empty())
     {
-        items.push_back({player.bagArmorName, "ÀåÂø ½Ã ¹æ¾î±¸ º¸³Ê½º°¡ Àû¿ëµÈ´Ù.", 1});
+        items.push_back({"", player.bagArmorName, "ì¥ì°© ì‹œ ë°©ì–´êµ¬ ë³´ë„ˆìŠ¤ê°€ ì ìš©ëœë‹¤.", 1, false, true});
     }
 
     return items;
 }
 
-// Á¤ºñ ¸ŞÀÎ È­¸éÀÇ º»¹® ¹®ÀÚ¿­À» ¸¸µç´Ù.
 std::string ComposeMainBody(const Player& player, bool canRecover, const std::vector<std::string>& logs)
 {
     std::ostringstream body;
     body << ComposeStatusPanel(player) << '\n';
     body << "------------------------------------------------------------\n";
-    body << "[À¯¹° ¸ñ·Ï]\n";
+    body << "[ìœ ë¬¼ ëª©ë¡]\n";
     body << ComposeRelicText(player) << '\n';
-    body << "[Á¤ºñ ¾È³»]\n";
-    body << "ÀÌ¹ø Á¤ºñ ¹æ¹®¿¡¼­ È¸º¹Àº " << (canRecover ? "°¡´É" : "ºÒ°¡") << "ÇÏ´Ù.\n\n";
-    body << "[Á¤ºñ ±â·Ï]\n";
+    body << "[ì •ë¹„ ì•ˆë‚´]\n";
+    body << "ì´ë²ˆ ì •ë¹„ ë°©ë¬¸ì—ì„œ íšŒë³µì€ " << (canRecover ? "ê°€ëŠ¥" : "ë¶ˆê°€") << "í•˜ë‹¤.\n\n";
+    body << "[ì •ë¹„ ê¸°ë¡]\n";
     body << ComposeLogText(logs);
     return body.str();
 }
 
-// È¸º¹ È­¸éÀÇ º»¹® ¹®ÀÚ¿­À» ¸¸µç´Ù.
 std::string ComposeRecoverBody(const Player& player, bool canRecover)
 {
     std::ostringstream body;
     body << ComposeStatusPanel(player) << '\n';
     body << "------------------------------------------------------------\n";
-    body << "[È¸º¹ ¾È³»]\n";
-    body << "ÀüÃ¼ È¸º¹: HP¿Í MP¸¦ ¸ğµÎ °¡µæ Ã¤¿î´Ù.\n";
-    body << "Ã¼·Â È¸º¹: HP¸¸ °¡µæ Ã¤¿î´Ù.\n";
-    body << "¸¶³ª È¸º¹: MP¸¸ °¡µæ Ã¤¿î´Ù.\n\n";
-    body << "ÀÌ¹ø Á¤ºñ¿¡¼­ È¸º¹ °¡´É ¿©ºÎ: " << (canRecover ? "°¡´É" : "ºÒ°¡") << '\n';
+    body << "[íšŒë³µ ì•ˆë‚´]\n";
+    body << "ì „ì²´ íšŒë³µ: HPì™€ MPë¥¼ ëª¨ë‘ ê°€ë“ ì±„ìš´ë‹¤.\n";
+    body << "ì²´ë ¥ íšŒë³µ: HPë§Œ ê°€ë“ ì±„ìš´ë‹¤.\n";
+    body << "ë§ˆë‚˜ íšŒë³µ: MPë§Œ ê°€ë“ ì±„ìš´ë‹¤.\n\n";
+    body << "ì´ë²ˆ ì •ë¹„ì—ì„œ íšŒë³µ ê°€ëŠ¥ ì—¬ë¶€: " << (canRecover ? "ê°€ëŠ¥" : "ë¶ˆê°€") << '\n';
     return body.str();
 }
 
-// »óÅÂÃ¢ ¸ŞÀÎ º»¹® ¹®ÀÚ¿­À» ¸¸µç´Ù.
 std::string ComposeStatusHubBody(const Player& player)
 {
     std::ostringstream body;
     body << ComposeStatusPanel(player) << '\n';
     body << "------------------------------------------------------------\n";
-    body << "[À¯¹° ¸ñ·Ï]\n";
+    body << "[ìœ ë¬¼ ëª©ë¡]\n";
     body << ComposeRelicText(player) << '\n';
-    body << "[»óÅÂÃ¢ ¾È³»]\n";
-    body << "½ºÅÈ ºĞ¹è¿Í ÀÎº¥Åä¸® È®ÀÎÀ» ÁøÇàÇÒ ¼ö ÀÖ´Ù.\n";
+    body << "[ìƒíƒœì°½ ì•ˆë‚´]\n";
+    body << "4ê°œ ìŠ¤íƒ¯ ë¶„ë°°ì™€ ì¸ë²¤í† ë¦¬ ê´€ë¦¬ë¥¼ ì§„í–‰í•  ìˆ˜ ìˆë‹¤.\n";
     return body.str();
 }
 
-// ½ºÅÈ ºĞ¹è È­¸éÀÇ º»¹® ¹®ÀÚ¿­À» ¸¸µç´Ù.
 std::string ComposeStatBody(const Player& player)
 {
     std::ostringstream body;
     body << ComposeStatusPanel(player) << '\n';
     body << "------------------------------------------------------------\n";
-    body << "[½ºÅÈ ºĞ¹è]\n";
-    body << "ºĞ¹è °¡´É Æ÷ÀÎÆ®: " << player.statPoints << "\n\n";
-    body << "HP +10 / MP +8 / ATK +2 / DEF +2 Áß ÇÏ³ª¸¦ ¼±ÅÃÇÑ´Ù.\n";
+    body << "[ìŠ¤íƒ¯ ë¶„ë°°]\n";
+    body << "ë¶„ë°° ê°€ëŠ¥ í¬ì¸íŠ¸: " << player.statPoints << "\n\n";
+    body << "í•œ ë²ˆ ì„ íƒí•  ë•Œë§ˆë‹¤ í•´ë‹¹ ìŠ¤íƒ¯ì´ 1 ì˜¤ë¥¸ë‹¤.\n";
+    body << "ê³µê²©ë ¥ì€ ì§ì ‘ ì˜¬ë¦¬ì§€ ì•Šìœ¼ë©° STR/INT ê¸°ë°˜ìœ¼ë¡œ ìë™ ê³„ì‚°ëœë‹¤.\n";
     return body.str();
 }
 
-// ÀÎº¥Åä¸® È­¸éÀÇ º»¹® ¹®ÀÚ¿­À» ¸¸µç´Ù.
 std::string ComposeInventoryBody(const Player& player, const InventoryItem* item)
 {
     std::ostringstream body;
@@ -209,42 +483,47 @@ std::string ComposeInventoryBody(const Player& player, const InventoryItem* item
 
     if (item == nullptr)
     {
-        body << "[ÀÎº¥Åä¸®]\n";
-        body << "ÇöÀç º¸À¯ ÁßÀÎ ¾ÆÀÌÅÛÀÌ ¾ø´Ù.\n\n";
-        body << "È¸º¹¾à, ¸¶³ª¾à, ¿¹ºñ Àåºñ¸¦ È¹µæÇÏ¸é ÀÌ°÷¿¡ Ç¥½ÃµÈ´Ù.\n";
+        body << "[ì¸ë²¤í† ë¦¬]\n";
+        body << "í˜„ì¬ ë³´ìœ  ì¤‘ì¸ ì•„ì´í…œì´ ì—†ë‹¤.\n";
         return body.str();
     }
 
-    body << "[¼±ÅÃÇÑ ¾ÆÀÌÅÛ]\n";
-    body << "ÀÌ¸§: " << item->name << '\n';
-    body << "¼³¸í: " << item->description << '\n';
-    body << "¼ö·®: " << item->count << "\n\n";
-    body << "¼±ÅÃÇÑ ¾ÆÀÌÅÛÀ» »ç¿ëÇÏ°Å³ª ÀåÂøÇÑ´Ù.\n";
-    body << "ESC¸¦ ´©¸£¸é »óÅÂÃ¢À¸·Î µ¹¾Æ°£´Ù.\n";
+    body << "[ì„ íƒí•œ ì•„ì´í…œ]\n";
+    body << "ì´ë¦„: " << item->name << '\n';
+    body << "ì„¤ëª…: " << item->description << '\n';
+    body << "ìˆ˜ëŸ‰: " << item->count << "\n\n";
+    body << "ì„ íƒí•œ ì•„ì´í…œì„ ì‚¬ìš©í•˜ê±°ë‚˜ ì¥ì°©í•œë‹¤.\n";
+    body << "ESCë¥¼ ëˆ„ë¥´ë©´ ìƒíƒœì°½ìœ¼ë¡œ ëŒì•„ê°„ë‹¤.\n";
     return body.str();
 }
 
-// »óÁ¡ È­¸éÀÇ º»¹® ¹®ÀÚ¿­À» ¸¸µç´Ù.
-std::string ComposeShopBody(const Player& player, const ShopItem& item)
+std::string ComposeShopBody(const Player& player, const ShopItem* item)
 {
     std::ostringstream body;
     body << ComposeStatusPanel(player) << '\n';
     body << "------------------------------------------------------------\n";
-    body << "[¼±ÅÃÇÑ ¹°Ç°]\n";
-    body << "ÀÌ¸§: " << item.name << '\n';
-    body << "¼³¸í: " << item.description << '\n';
-    body << "°¡°İ: " << item.price << " Gold\n";
-    body << "º¸À¯ ¼ö·®: " << item.ownedCount << "\n\n";
-    body << "±¸¸ÅÇÑ Àåºñ´Â »óÅÂÃ¢ÀÇ ÀÎº¥Åä¸®¿¡¼­ ÀåÂøÇÒ ¼ö ÀÖ´Ù.\n";
-    body << "ESC¸¦ ´©¸£¸é Á¤ºñ ¸ŞÀÎÀ¸·Î µ¹¾Æ°£´Ù.\n";
+
+    if (item == nullptr)
+    {
+        body << "[ìƒì ]\n";
+        body << "í˜„ì¬ íŒë§¤ ì¤‘ì¸ ë¬¼í’ˆì´ ì—†ë‹¤.\n";
+        return body.str();
+    }
+
+    body << "[ì„ íƒí•œ ë¬¼í’ˆ]\n";
+    body << "ì´ë¦„: " << item->name << '\n';
+    body << "ì„¤ëª…: " << item->description << '\n';
+    body << "ê°€ê²©: " << item->price << " Gold\n";
+    body << "ë³´ìœ  ìˆ˜ëŸ‰: " << item->ownedCount << "\n\n";
+    body << "ìƒì  íŒë§¤ìš© ëª©ë¡ë§Œ í‘œì‹œëœë‹¤.\n";
+    body << "ESCë¥¼ ëˆ„ë¥´ë©´ ì •ë¹„ ë©”ì¸ìœ¼ë¡œ ëŒì•„ê°„ë‹¤.\n";
     return body.str();
 }
 }
 
-// Á¤ºñ È­¸éÀ» Ç¥½ÃÇÏ°í ¼±ÅÃ °á°ú¸¦ ÇÃ·¹ÀÌ¾î »óÅÂ¿¡ ¹İ¿µÇÑ´Ù.
 MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& renderer, const MenuInput& input) const
 {
-    const std::vector<std::string> options = {"È¸º¹", "»óÁ¡", "»óÅÂÃ¢", "Ãâ¹ß"};
+    const std::vector<std::string> options = {"íšŒë³µ", "ìƒì ", "ìƒíƒœì°½", "ì¶œë°œ"};
     int selected = 0;
     int recoverSelected = 0;
     int statusHubSelected = 0;
@@ -256,7 +535,7 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
 
     for (;;)
     {
-        renderer.Present(renderer.ComposeMenuFrame("Á¤ºñ", ComposeMainBody(player, canRecover, maintenanceLogs), options, selected));
+        renderer.Present(renderer.ComposeMenuFrame("ì •ë¹„", ComposeMainBody(player, canRecover, maintenanceLogs), options, selected));
 
         const MenuAction action = input.ReadMenuSelection(selected, static_cast<int>(options.size()));
         if (action.type == MenuResultType::Move)
@@ -267,17 +546,17 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
 
         if (action.type == MenuResultType::Cancel)
         {
-            return {GameState::FloorSelect, "Á¤ºñ¸¦ ¸¶Ä¡°í ±æ ¼±ÅÃÀ¸·Î ÇâÇÑ´Ù."};
+            return {GameState::FloorSelect, "ì •ë¹„ë¥¼ ë§ˆì¹˜ê³  ê¸¸ ì„ íƒìœ¼ë¡œ í–¥í•œë‹¤."};
         }
 
         switch (action.index)
         {
         case 0:
         {
-            const std::vector<std::string> recoverOptions = {"ÀüÃ¼ È¸º¹", "Ã¼·Â È¸º¹", "¸¶³ª È¸º¹", "µÚ·Î"};
+            const std::vector<std::string> recoverOptions = {"ì „ì²´ íšŒë³µ", "ì²´ë ¥ íšŒë³µ", "ë§ˆë‚˜ íšŒë³µ", "ë’¤ë¡œ"};
             for (;;)
             {
-                renderer.Present(renderer.ComposeMenuFrame("È¸º¹", ComposeRecoverBody(player, canRecover), recoverOptions, recoverSelected));
+                renderer.Present(renderer.ComposeMenuFrame("íšŒë³µ", ComposeRecoverBody(player, canRecover), recoverOptions, recoverSelected));
                 const MenuAction recoverAction = input.ReadMenuSelection(recoverSelected, static_cast<int>(recoverOptions.size()));
                 if (recoverAction.type == MenuResultType::Move)
                 {
@@ -292,7 +571,7 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
 
                 if (!canRecover)
                 {
-                    PushMaintenanceLog(maintenanceLogs, "ÀÌ¹ø Á¤ºñ¿¡¼­´Â ´õ ÀÌ»ó È¸º¹ÇÒ ¼ö ¾ø´Ù.");
+                    PushMaintenanceLog(maintenanceLogs, "ì´ë²ˆ ì •ë¹„ì—ì„œëŠ” ë” ì´ìƒ íšŒë³µí•  ìˆ˜ ì—†ë‹¤.");
                     continue;
                 }
 
@@ -301,7 +580,7 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                     player.hp = player.maxHp;
                     player.mp = player.maxMp;
                     canRecover = false;
-                    PushMaintenanceLog(maintenanceLogs, "ÀüÃ¼ È¸º¹À¸·Î HP¿Í MP¸¦ ¸ğµÎ È¸º¹Çß´Ù.");
+                    PushMaintenanceLog(maintenanceLogs, "ì „ì²´ íšŒë³µìœ¼ë¡œ HPì™€ MPë¥¼ ëª¨ë‘ íšŒë³µí–ˆë‹¤.");
                     continue;
                 }
 
@@ -309,13 +588,13 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                 {
                     player.hp = player.maxHp;
                     canRecover = false;
-                    PushMaintenanceLog(maintenanceLogs, "Ã¼·ÂÀ» ¸ğµÎ È¸º¹Çß´Ù.");
+                    PushMaintenanceLog(maintenanceLogs, "ì²´ë ¥ì„ ëª¨ë‘ íšŒë³µí–ˆë‹¤.");
                     continue;
                 }
 
                 player.mp = player.maxMp;
                 canRecover = false;
-                PushMaintenanceLog(maintenanceLogs, "¸¶³ª¸¦ ¸ğµÎ È¸º¹Çß´Ù.");
+                PushMaintenanceLog(maintenanceLogs, "ë§ˆë‚˜ë¥¼ ëª¨ë‘ íšŒë³µí–ˆë‹¤.");
             }
             break;
         }
@@ -330,15 +609,18 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                 {
                     shopOptions.push_back(item.name);
                 }
-                shopOptions.push_back("µÚ·Î");
+                shopOptions.push_back("ë’¤ë¡œ");
 
                 if (shopSelected >= static_cast<int>(shopOptions.size()))
                 {
                     shopSelected = 0;
                 }
 
-                const ShopItem& currentItem = shopItems[std::min(shopSelected, static_cast<int>(shopItems.size()) - 1)];
-                renderer.Present(renderer.ComposeMenuFrame("»óÁ¡", ComposeShopBody(player, currentItem), shopOptions, shopSelected));
+                const ShopItem* currentItem = shopItems.empty()
+                    ? nullptr
+                    : &shopItems[std::min(shopSelected, static_cast<int>(shopItems.size()) - 1)];
+
+                renderer.Present(renderer.ComposeMenuFrame("ìƒì ", ComposeShopBody(player, currentItem), shopOptions, shopSelected));
                 const MenuAction shopAction = input.ReadMenuSelection(shopSelected, static_cast<int>(shopOptions.size()));
                 if (shopAction.type == MenuResultType::Move)
                 {
@@ -351,62 +633,61 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                     break;
                 }
 
+                if (shopItems.empty())
+                {
+                    break;
+                }
+
                 const ShopItem& item = shopItems[shopAction.index];
                 if (player.gold < item.price)
                 {
-                    PushMaintenanceLog(maintenanceLogs, "Gold°¡ ºÎÁ·ÇØ " + item.name + "À»(¸¦) ±¸¸ÅÇÒ ¼ö ¾ø´Ù.");
+                    PushMaintenanceLog(maintenanceLogs, "Goldê°€ ë¶€ì¡±í•´ " + item.name + "ì„(ë¥¼) êµ¬ë§¤í•  ìˆ˜ ì—†ë‹¤.");
                     continue;
                 }
 
-                if (shopAction.index == 0)
+                if (item.type == ShopItemType::Consumable)
                 {
                     player.gold -= item.price;
-                    ++player.potionCount;
-                    PushMaintenanceLog(maintenanceLogs, "È¸º¹¾àÀ» ±¸¸ÅÇß´Ù.");
+                    AddConsumable(player, item.id, 1);
+                    PushMaintenanceLog(maintenanceLogs, item.name + "ì„(ë¥¼) êµ¬ë§¤í–ˆë‹¤.");
                     continue;
                 }
 
-                if (shopAction.index == 1)
-                {
-                    player.gold -= item.price;
-                    ++player.etherCount;
-                    PushMaintenanceLog(maintenanceLogs, "¸¶³ª¾àÀ» ±¸¸ÅÇß´Ù.");
-                    continue;
-                }
-
-                if (shopAction.index == 2)
+                if (item.type == ShopItemType::Weapon)
                 {
                     if (!player.bagWeaponName.empty())
                     {
-                        PushMaintenanceLog(maintenanceLogs, "¿¹ºñ ¹«±â Ä­ÀÌ °¡µæ Â÷ ÀÖ´Ù.");
+                        PushMaintenanceLog(maintenanceLogs, "ì˜ˆë¹„ ë¬´ê¸° ì¹¸ì´ ê°€ë“ ì°¨ ìˆë‹¤.");
                         continue;
                     }
+
                     player.gold -= item.price;
                     player.bagWeaponName = item.name;
-                    player.bagWeaponAtkBonus = (player.job == JobClass::Warrior) ? 3 : 4;
-                    PushMaintenanceLog(maintenanceLogs, item.name + "À»(¸¦) ±¸¸ÅÇØ ÀÎº¥Åä¸®¿¡ ³Ö¾ú´Ù.");
+                    player.bagWeaponAtkBonus = item.atkBonus;
+                    PushMaintenanceLog(maintenanceLogs, item.name + "ì„(ë¥¼) êµ¬ë§¤í•´ ì¸ë²¤í† ë¦¬ì— ë„£ì—ˆë‹¤.");
                     continue;
                 }
 
                 if (!player.bagArmorName.empty())
                 {
-                    PushMaintenanceLog(maintenanceLogs, "¿¹ºñ ¹æ¾î±¸ Ä­ÀÌ °¡µæ Â÷ ÀÖ´Ù.");
+                    PushMaintenanceLog(maintenanceLogs, "ì˜ˆë¹„ ë°©ì–´êµ¬ ì¹¸ì´ ê°€ë“ ì°¨ ìˆë‹¤.");
                     continue;
                 }
+
                 player.gold -= item.price;
                 player.bagArmorName = item.name;
-                player.bagArmorDefBonus = 3;
-                PushMaintenanceLog(maintenanceLogs, item.name + "À»(¸¦) ±¸¸ÅÇØ ÀÎº¥Åä¸®¿¡ ³Ö¾ú´Ù.");
+                player.bagArmorDefBonus = item.defBonus;
+                PushMaintenanceLog(maintenanceLogs, item.name + "ì„(ë¥¼) êµ¬ë§¤í•´ ì¸ë²¤í† ë¦¬ì— ë„£ì—ˆë‹¤.");
             }
             break;
         }
 
         case 2:
         {
-            const std::vector<std::string> statusHubOptions = {"½ºÅÈ ºĞ¹è", "ÀÎº¥Åä¸®", "µÚ·Î"};
+            const std::vector<std::string> statusHubOptions = {"ìŠ¤íƒ¯ ë¶„ë°°", "ì¸ë²¤í† ë¦¬", "ë’¤ë¡œ"};
             for (;;)
             {
-                renderer.Present(renderer.ComposeMenuFrame("»óÅÂÃ¢", ComposeStatusHubBody(player), statusHubOptions, statusHubSelected));
+                renderer.Present(renderer.ComposeMenuFrame("ìƒíƒœì°½", ComposeStatusHubBody(player), statusHubOptions, statusHubSelected));
                 const MenuAction statusAction = input.ReadMenuSelection(statusHubSelected, static_cast<int>(statusHubOptions.size()));
                 if (statusAction.type == MenuResultType::Move)
                 {
@@ -421,10 +702,10 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
 
                 if (statusAction.index == 0)
                 {
-                    const std::vector<std::string> statOptions = {"HP +10", "MP +8", "ATK +2", "DEF +2", "µÚ·Î"};
+                    const std::vector<std::string> statOptions = {"STR +1", "AGI +1", "INT +1", "MND +1", "ë’¤ë¡œ"};
                     for (;;)
                     {
-                        renderer.Present(renderer.ComposeMenuFrame("½ºÅÈ ºĞ¹è", ComposeStatBody(player), statOptions, statSelected));
+                        renderer.Present(renderer.ComposeMenuFrame("ìŠ¤íƒ¯ ë¶„ë°°", ComposeStatBody(player), statOptions, statSelected));
                         const MenuAction statAction = input.ReadMenuSelection(statSelected, static_cast<int>(statOptions.size()));
                         if (statAction.type == MenuResultType::Move)
                         {
@@ -439,7 +720,7 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
 
                         if (player.statPoints <= 0)
                         {
-                            PushMaintenanceLog(maintenanceLogs, "ºĞ¹èÇÒ ½ºÅÈ Æ÷ÀÎÆ®°¡ ¾ø´Ù.");
+                            PushMaintenanceLog(maintenanceLogs, "ë¶„ë°°í•  ìŠ¤íƒ¯ í¬ì¸íŠ¸ê°€ ì—†ë‹¤.");
                             continue;
                         }
 
@@ -447,24 +728,26 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                         switch (statAction.index)
                         {
                         case 0:
-                            player.maxHp += 10;
-                            player.hp += 10;
-                            PushMaintenanceLog(maintenanceLogs, "ÃÖ´ë HP¸¦ 10 ¿Ã·È´Ù.");
+                            ++player.strength;
+                            PushMaintenanceLog(maintenanceLogs, "STRì„ 1 ì˜¬ë ¸ë‹¤.");
                             break;
                         case 1:
-                            player.maxMp += 8;
-                            player.mp += 8;
-                            PushMaintenanceLog(maintenanceLogs, "ÃÖ´ë MP¸¦ 8 ¿Ã·È´Ù.");
+                            ++player.agility;
+                            PushMaintenanceLog(maintenanceLogs, "AGIë¥¼ 1 ì˜¬ë ¸ë‹¤.");
                             break;
                         case 2:
-                            player.atk += 2;
-                            PushMaintenanceLog(maintenanceLogs, "ATK¸¦ 2 ¿Ã·È´Ù.");
+                            ++player.intelligence;
+                            PushMaintenanceLog(maintenanceLogs, "INTë¥¼ 1 ì˜¬ë ¸ë‹¤.");
                             break;
                         case 3:
-                            player.def += 2;
-                            PushMaintenanceLog(maintenanceLogs, "DEF¸¦ 2 ¿Ã·È´Ù.");
+                            ++player.spirit;
+                            PushMaintenanceLog(maintenanceLogs, "MNDë¥¼ 1 ì˜¬ë ¸ë‹¤.");
+                            break;
+                        default:
                             break;
                         }
+
+                        RefreshDerivedStats(player);
                     }
                     continue;
                 }
@@ -477,7 +760,7 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                     {
                         inventoryOptions.push_back(item.name);
                     }
-                    inventoryOptions.push_back("µÚ·Î");
+                    inventoryOptions.push_back("ë’¤ë¡œ");
 
                     if (inventorySelected >= static_cast<int>(inventoryOptions.size()))
                     {
@@ -487,7 +770,8 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                     const InventoryItem* currentItem = inventoryItems.empty()
                         ? nullptr
                         : &inventoryItems[std::min(inventorySelected, static_cast<int>(inventoryItems.size()) - 1)];
-                    renderer.Present(renderer.ComposeMenuFrame("ÀÎº¥Åä¸®", ComposeInventoryBody(player, currentItem), inventoryOptions, inventorySelected));
+
+                    renderer.Present(renderer.ComposeMenuFrame("ì¸ë²¤í† ë¦¬", ComposeInventoryBody(player, currentItem), inventoryOptions, inventorySelected));
                     const MenuAction inventoryAction = input.ReadMenuSelection(inventorySelected, static_cast<int>(inventoryOptions.size()));
                     if (inventoryAction.type == MenuResultType::Move)
                     {
@@ -500,50 +784,55 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                         break;
                     }
 
+                    if (inventoryItems.empty())
+                    {
+                        break;
+                    }
+
                     const InventoryItem& selectedItem = inventoryItems[inventoryAction.index];
-                    if (selectedItem.name == "È¸º¹¾à")
+                    if (!selectedItem.id.empty())
                     {
-                        if (player.hp >= player.maxHp)
+                        std::string summary;
+                        const std::vector<ConsumableInfo> ownedConsumables = BuildOwnedConsumables(player);
+                        const auto foundConsumable = std::find_if(
+                            ownedConsumables.begin(),
+                            ownedConsumables.end(),
+                            [&selectedItem](const ConsumableInfo& consumable)
+                            {
+                                return consumable.id == selectedItem.id;
+                            });
+
+                        if (foundConsumable == ownedConsumables.end())
                         {
-                            PushMaintenanceLog(maintenanceLogs, "HP°¡ °¡µæ Â÷ ÀÖ¾î È¸º¹¾àÀ» »ç¿ëÇÒ ¼ö ¾ø´Ù.");
                             continue;
                         }
-                        player.hp = std::min(player.maxHp, player.hp + 35);
-                        --player.potionCount;
-                        PushMaintenanceLog(maintenanceLogs, "ÀÎº¥Åä¸®¿¡¼­ È¸º¹¾àÀ» »ç¿ëÇß´Ù.");
+
+                        if (!ApplyConsumableEffect(player, *foundConsumable, false, summary))
+                        {
+                            PushMaintenanceLog(maintenanceLogs, summary);
+                            continue;
+                        }
+
+                        ConsumeConsumable(player, foundConsumable->id, 1);
+                        PushMaintenanceLog(maintenanceLogs, summary);
                         continue;
                     }
 
-                    if (selectedItem.name == "¸¶³ª¾à")
+                    if (selectedItem.isWeapon && !player.bagWeaponName.empty() && selectedItem.name == player.bagWeaponName)
                     {
-                        if (player.mp >= player.maxMp)
-                        {
-                            PushMaintenanceLog(maintenanceLogs, "MP°¡ °¡µæ Â÷ ÀÖ¾î ¸¶³ª¾àÀ» »ç¿ëÇÒ ¼ö ¾ø´Ù.");
-                            continue;
-                        }
-                        player.mp = std::min(player.maxMp, player.mp + 20);
-                        --player.etherCount;
-                        PushMaintenanceLog(maintenanceLogs, "ÀÎº¥Åä¸®¿¡¼­ ¸¶³ª¾àÀ» »ç¿ëÇß´Ù.");
-                        continue;
-                    }
-
-                    if (!player.bagWeaponName.empty() && selectedItem.name == player.bagWeaponName)
-                    {
-                        player.atk -= player.weaponAtkBonus;
-                        player.atk += player.bagWeaponAtkBonus;
                         std::swap(player.weaponName, player.bagWeaponName);
                         std::swap(player.weaponAtkBonus, player.bagWeaponAtkBonus);
-                        PushMaintenanceLog(maintenanceLogs, "¿¹ºñ ¹«±â¸¦ ÀåÂøÇß´Ù.");
+                        RefreshDerivedStats(player);
+                        PushMaintenanceLog(maintenanceLogs, "ì˜ˆë¹„ ë¬´ê¸°ë¥¼ ì¥ì°©í–ˆë‹¤.");
                         continue;
                     }
 
-                    if (!player.bagArmorName.empty() && selectedItem.name == player.bagArmorName)
+                    if (selectedItem.isArmor && !player.bagArmorName.empty() && selectedItem.name == player.bagArmorName)
                     {
-                        player.def -= player.armorDefBonus;
-                        player.def += player.bagArmorDefBonus;
                         std::swap(player.armorName, player.bagArmorName);
                         std::swap(player.armorDefBonus, player.bagArmorDefBonus);
-                        PushMaintenanceLog(maintenanceLogs, "¿¹ºñ ¹æ¾î±¸¸¦ ÀåÂøÇß´Ù.");
+                        RefreshDerivedStats(player);
+                        PushMaintenanceLog(maintenanceLogs, "ì˜ˆë¹„ ë°©ì–´êµ¬ë¥¼ ì¥ì°©í–ˆë‹¤.");
                         continue;
                     }
                 }
@@ -552,7 +841,7 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
         }
 
         default:
-            return {GameState::FloorSelect, "Á¤ºñ¸¦ ¸¶Ä¡°í ±æ ¼±ÅÃÀ¸·Î ÇâÇÑ´Ù."};
+            return {GameState::FloorSelect, "ì •ë¹„ë¥¼ ë§ˆì¹˜ê³  ê¸¸ ì„ íƒìœ¼ë¡œ í–¥í•œë‹¤."};
         }
     }
 }

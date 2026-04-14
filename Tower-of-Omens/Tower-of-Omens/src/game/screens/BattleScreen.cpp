@@ -1,6 +1,8 @@
-#include "game/screens/BattleScreen.h"
+ï»¿#include "game/screens/BattleScreen.h"
+#include "game/ConsumableData.h"
 
 #include <algorithm>
+#include <cmath>
 #include <random>
 #include <sstream>
 #include <string>
@@ -24,6 +26,16 @@ struct ItemDefinition
     int count = 0;
 };
 
+struct D20Check
+{
+    int roll = 0;
+    int modifier = 0;
+    int situationalBonus = 0;
+    int total = 0;
+    int target = 0;
+    bool success = false;
+};
+
 enum class EnemyIntent
 {
     Attack,
@@ -36,34 +48,34 @@ std::string BattleTypeName(BattleType battleType)
     switch (battleType)
     {
     case BattleType::Normal:
-        return "ÀÏ¹İ ÀüÅõ";
+        return "ì¼ë°˜ ì „íˆ¬";
     case BattleType::Elite:
-        return "¿¤¸®Æ® ÀüÅõ";
+        return "ì—˜ë¦¬íŠ¸ ì „íˆ¬";
     case BattleType::Event:
-        return "Æ¯¼ö ÀüÅõ";
+        return "ì´ë²¤íŠ¸";
     case BattleType::Boss:
-        return "º¸½º ÀüÅõ";
+        return "ë³´ìŠ¤ ì „íˆ¬";
     }
 
-    return "ÀüÅõ";
+    return "ì „íˆ¬";
 }
 
 std::string PassiveName(JobClass job)
 {
-    return (job == JobClass::Warrior) ? "ºÒ±¼" : "¸¶·Â ¼øÈ¯";
+    return (job == JobClass::Warrior) ? "ë¶ˆêµ´" : "ë§ˆë ¥ ìˆœí™˜";
 }
 
 std::string PassiveDescription(JobClass job)
 {
     return (job == JobClass::Warrior)
-        ? "¹Ş´Â ÇÇÇØ°¡ Ç×»ó 2 °¨¼ÒÇÑ´Ù."
-        : "Çàµ¿ ÈÄ MP¸¦ 3 È¸º¹ÇÑ´Ù.";
+        ? "ë°›ëŠ” í”¼í•´ê°€ í•­ìƒ 2 ê°ì†Œí•œë‹¤."
+        : "í–‰ë™ í›„ MPë¥¼ 3 íšŒë³µí•œë‹¤.";
 }
 
 bool HasObservationRelic(const Player& player)
 {
-    return std::find(player.relicNames.begin(), player.relicNames.end(), "°üÂû À¯¹°") != player.relicNames.end() ||
-        std::find(player.relicNames.begin(), player.relicNames.end(), "°üÂûÀÇ ´«") != player.relicNames.end();
+    return std::find(player.relicNames.begin(), player.relicNames.end(), "ê´€ì°° ìœ ë¬¼") != player.relicNames.end() ||
+        std::find(player.relicNames.begin(), player.relicNames.end(), "ê´€ì°°ì˜ ëˆˆ") != player.relicNames.end();
 }
 
 std::string EnemyIntentName(EnemyIntent intent)
@@ -71,14 +83,14 @@ std::string EnemyIntentName(EnemyIntent intent)
     switch (intent)
     {
     case EnemyIntent::Attack:
-        return "°ø°İ";
+        return "ê³µê²©";
     case EnemyIntent::Guard:
-        return "¹æ¾î";
+        return "ë°©ì–´";
     case EnemyIntent::Recover:
-        return "È¸º¹";
+        return "íšŒë³µ";
     }
 
-    return "¾Ë ¼ö ¾øÀ½";
+    return "ì•Œ ìˆ˜ ì—†ìŒ";
 }
 
 std::string EnemyIntentDescription(EnemyIntent intent)
@@ -86,14 +98,14 @@ std::string EnemyIntentDescription(EnemyIntent intent)
     switch (intent)
     {
     case EnemyIntent::Attack:
-        return "´ÙÀ½ ÅÏ¿¡ ÇÃ·¹ÀÌ¾î¸¦ ³ë¸®°í °ø°İÀ» ÁØºñ ÁßÀÌ´Ù.";
+        return "ë‹¤ìŒ í„´ì— í”Œë ˆì´ì–´ë¥¼ ë…¸ë¦¬ê³  ê³µê²©ì„ ì¤€ë¹„ ì¤‘ì´ë‹¤.";
     case EnemyIntent::Guard:
-        return "´ÙÀ½ ÅÏ¿¡ ¸öÀ» ¿õÅ©¸®°í ÇÇÇØ¸¦ ÁÙÀÏ »ı°¢ÀÌ´Ù.";
+        return "ë‹¤ìŒ í„´ì— ëª¸ì„ ì›…í¬ë¦¬ê³  í”¼í•´ë¥¼ ì¤„ì¼ ìƒê°ì´ë‹¤.";
     case EnemyIntent::Recover:
-        return "´ÙÀ½ ÅÏ¿¡ ¼ûÀ» °í¸£¸ç Ã¼·ÂÀ» È¸º¹ÇÏ·Á ÇÑ´Ù.";
+        return "ë‹¤ìŒ í„´ì— ìˆ¨ì„ ê³ ë¥´ë©° ì²´ë ¥ì„ íšŒë³µí•˜ë ¤ í•œë‹¤.";
     }
 
-    return "ÀÇµµ¸¦ ÀĞÀ» ¼ö ¾ø´Ù.";
+    return "ì˜ë„ë¥¼ ì½ì„ ìˆ˜ ì—†ë‹¤.";
 }
 
 std::string MakeBar(int current, int maximum, int width, char filled, char empty)
@@ -114,6 +126,92 @@ int RandomPercent()
     static std::mt19937 generator(seed());
     static std::uniform_int_distribution<int> distribution(1, 100);
     return distribution(generator);
+}
+
+int RollDie(int minValue, int maxValue)
+{
+    static std::random_device seed;
+    static std::mt19937 generator(seed());
+    std::uniform_int_distribution<int> distribution(minValue, maxValue);
+    return distribution(generator);
+}
+
+int StatModifier(int stat)
+{
+    return static_cast<int>(std::lround((static_cast<double>(stat) - 10.0) / 2.0));
+}
+
+D20Check MakeD20Check(int stat, int target, int situationalBonus = 0)
+{
+    D20Check check;
+    check.roll = RollDie(1, 20);
+    check.modifier = StatModifier(stat);
+    check.situationalBonus = situationalBonus;
+    check.total = check.roll + check.modifier + check.situationalBonus;
+    check.target = target;
+    check.success = check.total >= check.target;
+    return check;
+}
+
+std::string FormatD20Check(const D20Check& check)
+{
+    std::ostringstream stream;
+    stream << "d20(" << check.roll << ")";
+    if (check.modifier != 0)
+    {
+        stream << (check.modifier > 0 ? " +" : " ") << check.modifier;
+    }
+    if (check.situationalBonus != 0)
+    {
+        stream << (check.situationalBonus > 0 ? " +" : " ") << check.situationalBonus;
+    }
+    stream << " = " << check.total << " vs " << check.target;
+    return stream.str();
+}
+
+int PlayerAttackStat(const Player& player)
+{
+    return (player.job == JobClass::Warrior) ? player.strength : player.intelligence;
+}
+
+int PlayerAccuracyStat(const Player& player)
+{
+    return (player.job == JobClass::Warrior) ? player.agility : player.intelligence;
+}
+
+int BaseAttackDifficulty(BattleType battleType)
+{
+    switch (battleType)
+    {
+    case BattleType::Elite:
+        return 12;
+    case BattleType::Boss:
+        return 14;
+    case BattleType::Event:
+        return 11;
+    case BattleType::Normal:
+    default:
+        return 10;
+    }
+}
+
+int ComputePlayerDamage(const Player& player, int enemyDefense, int skillBonus = 0)
+{
+    const int statPower = (player.job == JobClass::Warrior)
+        ? (player.strength + (player.agility / 2))
+        : (player.intelligence + (player.spirit / 2));
+    return std::max(1, player.atk + skillBonus + (statPower / 3) - enemyDefense);
+}
+
+int ComputeEnemyDamage(const Enemy& enemy, int defenseValue)
+{
+    return std::max(1, enemy.atk - defenseValue);
+}
+
+int RecoveryAmountFromSpirit(const Player& player, bool hpRecovery)
+{
+    const int statBase = hpRecovery ? player.spirit : player.intelligence;
+    return std::max(4, 4 + (statBase / 3));
 }
 
 EnemyIntent RollEnemyIntent(int enemyHp, int enemyMaxHp, BattleType battleType)
@@ -166,18 +264,18 @@ std::vector<SkillDefinition> BuildSkillList(JobClass job, int level)
 
     if (job == JobClass::Warrior)
     {
-        skills.push_back({"°­Ã¶ ÅÂ¼¼", "MP 8 ¼Ò¸ğ. ÇÇÇØ¸¦ ÁÖ°í ÀÌ¹ø ÅÏ ¹æ¾î¸¦ °­È­ÇÑ´Ù.", 8, 5, true});
+        skills.push_back({"ê°•ì²  íƒœì„¸", "MP 8 ì†Œëª¨. í”¼í•´ë¥¼ ì£¼ê³  ì´ë²ˆ í„´ ë°©ì–´ë¥¼ ê°•í™”í•œë‹¤.", 8, 5, true});
         if (level >= 5)
         {
-            skills.push_back({"ÆÄ¼â µ¹°İ", "MP 14 ¼Ò¸ğ. ´õ Å« ÇÇÇØ¸¦ ÁÖ°í ÀÚ¼¼¸¦ ´ÙÀâ´Â´Ù.", 14, 12, true});
+            skills.push_back({"íŒŒì‡„ ëŒê²©", "MP 14 ì†Œëª¨. ë” í° í”¼í•´ë¥¼ ì£¼ê³  ìì„¸ë¥¼ ë‹¤ì¡ëŠ”ë‹¤.", 14, 12, true});
         }
     }
     else
     {
-        skills.push_back({"¸¶·Â Æø¹ß", "MP 14 ¼Ò¸ğ. °­ÇÑ ¸¶¹ı ÇÇÇØ¸¦ ÁØ´Ù.", 14, 16, false});
+        skills.push_back({"ë§ˆë ¥ í­ë°œ", "MP 14 ì†Œëª¨. ê°•í•œ ë§ˆë²• í”¼í•´ë¥¼ ì¤€ë‹¤.", 14, 16, false});
         if (level >= 5)
         {
-            skills.push_back({"¿î¼® ³«ÇÏ", "MP 20 ¼Ò¸ğ. ¾ĞµµÀûÀÎ ¸¶¹ı ÇÇÇØ¸¦ ÁØ´Ù.", 20, 24, false});
+            skills.push_back({"ìš´ì„ ë‚™í•˜", "MP 20 ì†Œëª¨. ì••ë„ì ì¸ ë§ˆë²• í”¼í•´ë¥¼ ì¤€ë‹¤.", 20, 24, false});
         }
     }
 
@@ -187,17 +285,10 @@ std::vector<SkillDefinition> BuildSkillList(JobClass job, int level)
 std::vector<ItemDefinition> BuildItemList(const Player& player)
 {
     std::vector<ItemDefinition> items;
-
-    if (player.potionCount > 0)
+    for (const ConsumableInfo& consumable : BuildOwnedConsumables(player))
     {
-        items.push_back({"È¸º¹¾à", "HP¸¦ 35 È¸º¹ÇÑ´Ù.", player.potionCount});
+        items.push_back({consumable.name, consumable.description, GetConsumableCount(player, consumable.id)});
     }
-
-    if (player.etherCount > 0)
-    {
-        items.push_back({"¸¶³ª¾à", "MP¸¦ 20 È¸º¹ÇÑ´Ù.", player.etherCount});
-    }
-
     return items;
 }
 
@@ -206,25 +297,20 @@ std::string ActionDescription(JobClass job, int level, int actionIndex)
     switch (actionIndex)
     {
     case 0:
-        return "¹«±â¸¦ ÈÖµÑ·¯ ÀûÀ» °ø°İÇÑ´Ù.";
+        return "d20 íŒì •ìœ¼ë¡œ ëª…ì¤‘ì„ í™•ì¸í•œ ë’¤ ì ì„ ê³µê²©í•œë‹¤.";
     case 1:
         return (job == JobClass::Warrior)
-            ? ((level >= 5) ? "»ç¿ë °¡´ÉÇÑ ÀüÅõ ±â¼úÀ» ¼±ÅÃÇÑ´Ù. °­Ã¶ ÅÂ¼¼¿Í ÆÄ¼â µ¹°İÀ» »ç¿ëÇÒ ¼ö ÀÖ´Ù." : "»ç¿ë °¡´ÉÇÑ ÀüÅõ ±â¼úÀ» ¼±ÅÃÇÑ´Ù. ÇöÀç´Â °­Ã¶ ÅÂ¼¼¸¦ »ç¿ëÇÒ ¼ö ÀÖ´Ù.")
-            : ((level >= 5) ? "»ç¿ë °¡´ÉÇÑ ¸¶¹ı ±â¼úÀ» ¼±ÅÃÇÑ´Ù. ¸¶·Â Æø¹ß°ú ¿î¼® ³«ÇÏ¸¦ »ç¿ëÇÒ ¼ö ÀÖ´Ù." : "»ç¿ë °¡´ÉÇÑ ¸¶¹ı ±â¼úÀ» ¼±ÅÃÇÑ´Ù. ÇöÀç´Â ¸¶·Â Æø¹ßÀ» »ç¿ëÇÒ ¼ö ÀÖ´Ù.");
+            ? ((level >= 5) ? "ì‚¬ìš© ê°€ëŠ¥í•œ ì „íˆ¬ ê¸°ìˆ ì„ ì„ íƒí•œë‹¤. ê°•ì²  íƒœì„¸ì™€ íŒŒì‡„ ëŒê²©ì„ ì‚¬ìš©í•  ìˆ˜ ìˆë‹¤." : "ì‚¬ìš© ê°€ëŠ¥í•œ ì „íˆ¬ ê¸°ìˆ ì„ ì„ íƒí•œë‹¤. í˜„ì¬ëŠ” ê°•ì²  íƒœì„¸ë¥¼ ì‚¬ìš©í•  ìˆ˜ ìˆë‹¤.")
+            : ((level >= 5) ? "ì‚¬ìš© ê°€ëŠ¥í•œ ë§ˆë²• ê¸°ìˆ ì„ ì„ íƒí•œë‹¤. ë§ˆë ¥ í­ë°œê³¼ ìš´ì„ ë‚™í•˜ë¥¼ ì‚¬ìš©í•  ìˆ˜ ìˆë‹¤." : "ì‚¬ìš© ê°€ëŠ¥í•œ ë§ˆë²• ê¸°ìˆ ì„ ì„ íƒí•œë‹¤. í˜„ì¬ëŠ” ë§ˆë ¥ í­ë°œì„ ì‚¬ìš©í•  ìˆ˜ ìˆë‹¤.");
     case 2:
-        return "º¸À¯ ÁßÀÎ ¼Ò¸ğÇ° ¸ñ·ÏÀ» ¿­¾î ÇÏ³ª¸¦ ¼±ÅÃÇÑ´Ù. ¾ø´Â ¾ÆÀÌÅÛÀº Ç¥½ÃµÇÁö ¾Ê´Â´Ù.";
+        return "ë³´ìœ  ì¤‘ì¸ ì†Œëª¨í’ˆ ëª©ë¡ì„ ì—´ì–´ í•˜ë‚˜ë¥¼ ì„ íƒí•œë‹¤. ì—†ëŠ” ì•„ì´í…œì€ í‘œì‹œë˜ì§€ ì•ŠëŠ”ë‹¤.";
     case 3:
-        return "¹æ¾î ÀÚ¼¼¸¦ ÃëÇØ ¹Ş´Â ÇÇÇØ¸¦ ÁÙÀÎ´Ù.";
+        return "ë°©ì–´ ìì„¸ë¥¼ ì·¨í•´ ë°›ëŠ” í”¼í•´ë¥¼ ì¤„ì´ê³  ì ì˜ ëª…ì¤‘ì„ í”ë“ ë‹¤.";
     case 4:
-        return "ÀüÅõ¿¡¼­ ÀÌÅ»ÇÒ ±âÈ¸¸¦ ³ë¸°´Ù.";
+        return "d20 + ë¯¼ì²© ë³´ì •ìœ¼ë¡œ ì „íˆ¬ì—ì„œ ì´íƒˆì„ ì‹œë„í•œë‹¤.";
     }
 
-    return "Çàµ¿À» ¼±ÅÃÇÑ´Ù.";
-}
-
-int ComputeDamage(int attack, int defense)
-{
-    return std::max(1, attack - defense);
+    return "í–‰ë™ì„ ì„ íƒí•œë‹¤.";
 }
 
 void PushBattleLog(std::vector<std::string>& logs, const std::string& line)
@@ -252,10 +338,15 @@ std::string ComposeLogText(const std::vector<std::string>& logs)
 std::string ComposeStatusHeadline(const Player& player)
 {
     std::ostringstream body;
-    body << "[ÇöÀç »óÅÂ] HP " << player.hp << '/' << player.maxHp;
+    body << "[í˜„ì¬ ìƒíƒœ] HP " << player.hp << '/' << player.maxHp;
     body << " | MP " << player.mp << '/' << player.maxMp;
-    body << " | È¸º¹¾à " << player.potionCount;
-    body << " | ¸¶³ª¾à " << player.etherCount << '\n';
+    body << " | íšŒë³µì•½ " << GetConsumableCount(player, "201");
+    body << " | ë§ˆë‚˜ì•½ " << GetConsumableCount(player, "203");
+    if (player.nextAttackMultiplier > 1)
+    {
+        body << " | ë‹¤ìŒ ê³µê²© x" << player.nextAttackMultiplier;
+    }
+    body << '\n';
     return body.str();
 }
 
@@ -270,13 +361,17 @@ std::string ComposeBattleTitle(const Player& player, const std::string& baseTitl
 std::string ComposePlayerPanel(const Player& player)
 {
     std::ostringstream body;
-    body << "[ÇÃ·¹ÀÌ¾î ÆĞ³Î]\n";
-    body << player.name << " | Ãş " << player.floor << " | Lv " << player.level << '\n';
+    body << "[í”Œë ˆì´ì–´ íŒ¨ë„]\n";
+    body << player.name << " | ì¸µ " << player.floor << " | Lv " << player.level << '\n';
     body << "HP [" << MakeBar(player.hp, player.maxHp, 20, '#', '.') << "] " << player.hp << '/' << player.maxHp << '\n';
     body << "MP [" << MakeBar(player.mp, player.maxMp, 20, '@', '.') << "] " << player.mp << '/' << player.maxMp << '\n';
-    body << "ATK " << player.atk << " | DEF " << player.def << " | GOLD " << player.gold << '\n';
-    body << "È¸º¹¾à " << player.potionCount << " | ¸¶³ª¾à " << player.etherCount << '\n';
-    body << "ÆĞ½Ãºê " << PassiveName(player.job) << " - " << PassiveDescription(player.job) << '\n';
+    body << "STR " << player.strength << " | AGI " << player.agility;
+    body << " | INT " << player.intelligence << " | MND " << player.spirit << '\n';
+    body << "ë°©ì–´ë ¥ " << player.def << " | GOLD " << player.gold << '\n';
+    body << "ê·¼ì ‘ ë³´ì • " << StatModifier(player.strength) << " | ëª…ì¤‘/ë„ì£¼ ë³´ì • " << StatModifier(player.agility)
+        << " | ë§ˆë²• ë³´ì • " << StatModifier(player.intelligence) << " | íšŒë³µ ë³´ì • " << StatModifier(player.spirit) << '\n';
+    body << "íšŒë³µì•½ " << GetConsumableCount(player, "201") << " | ë§ˆë‚˜ì•½ " << GetConsumableCount(player, "203") << '\n';
+    body << "íŒ¨ì‹œë¸Œ " << PassiveName(player.job) << " - " << PassiveDescription(player.job) << '\n';
     return body.str();
 }
 
@@ -288,27 +383,28 @@ std::string ComposeEnemyPanel(
     EnemyIntent nextIntent)
 {
     std::ostringstream body;
-    body << "[Àû ÆĞ³Î]\n";
+    body << "[ì  íŒ¨ë„]\n";
     body << enemy.name << " | " << BattleTypeName(battleType) << '\n';
     body << "HP [" << MakeBar(enemyHp, enemy.hp, 20, '#', '.') << "] " << enemyHp << '/' << enemy.hp << '\n';
-    body << "ATK " << enemy.atk << " | º¸»ó " << enemy.goldReward << " Gold\n";
+    body << "ATK " << enemy.atk << " | ë³´ìƒ " << enemy.goldReward << " Gold\n";
+    body << "ê¸°ë³¸ íšŒí”¼ ë‚œë„ " << BaseAttackDifficulty(battleType) << '\n';
 
     if (HasObservationRelic(player))
     {
-        body << "´ÙÀ½ Çàµ¿: " << EnemyIntentName(nextIntent) << "\n";
+        body << "ë‹¤ìŒ í–‰ë™: " << EnemyIntentName(nextIntent) << "\n";
         body << EnemyIntentDescription(nextIntent) << '\n';
     }
     else if (battleType == BattleType::Boss)
     {
-        body << "½É¿¬ÀÌ ²ŞÆ²°Å¸°´Ù. ¹°·¯¼³ °÷Àº ¾ø´Ù.\n";
+        body << "ì‹¬ì—°ì´ ê¿ˆí‹€ê±°ë¦°ë‹¤. ë¬¼ëŸ¬ì„¤ ê³³ì€ ì—†ë‹¤.\n";
     }
     else if (battleType == BattleType::Elite)
     {
-        body << "º¸Åë Àûº¸´Ù ³¯Ä«·Î¿î ±â¼¼°¡ ´À²¸Áø´Ù.\n";
+        body << "ë³´í†µ ì ë³´ë‹¤ ë‚ ì¹´ë¡œìš´ ê¸°ì„¸ê°€ ëŠê»´ì§„ë‹¤.\n";
     }
     else
     {
-        body << "¼ûÀ» °í¸£°í ÀûÀÇ ¿òÁ÷ÀÓÀ» »ìÇÉ´Ù.\n";
+        body << "ìˆ¨ì„ ê³ ë¥´ê³  ì ì˜ ì›€ì§ì„ì„ ì‚´í•€ë‹¤.\n";
     }
 
     return body.str();
@@ -329,9 +425,9 @@ std::string ComposeBattleBody(
     body << "------------------------------------------------------------\n";
     body << ComposeEnemyPanel(player, enemy, enemyHp, battleType, nextIntent) << '\n';
     body << "------------------------------------------------------------\n";
-    body << "[ÇöÀç Çàµ¿]\n";
+    body << "[í˜„ì¬ í–‰ë™]\n";
     body << ActionDescription(player.job, player.level, selected) << "\n\n";
-    body << "[ÀüÅõ ·Î±×]\n";
+    body << "[ì „íˆ¬ ë¡œê·¸]\n";
     body << ComposeLogText(battleLogs);
     return body.str();
 }
@@ -340,12 +436,12 @@ std::string ComposeSkillMenuBody(const Player& player, const SkillDefinition& sk
 {
     std::ostringstream body;
     body << ComposeStatusHeadline(player);
-    body << "[¼±ÅÃÇÑ ½ºÅ³]\n";
+    body << "[ì„ íƒí•œ ìŠ¤í‚¬]\n";
     body << skill.name << '\n';
     body << skill.description << '\n';
-    body << "ÇÊ¿ä MP: " << skill.mpCost << "\n\n";
+    body << "í•„ìš” MP: " << skill.mpCost << "\n\n";
     body << ComposePlayerPanel(player);
-    body << "ESC¸¦ ´©¸£¸é ÀüÅõ ¸Ş´º·Î µ¹¾Æ°£´Ù.\n";
+    body << "ESCë¥¼ ëˆ„ë¥´ë©´ ì „íˆ¬ ë©”ë‰´ë¡œ ëŒì•„ê°„ë‹¤.\n";
     return body.str();
 }
 
@@ -353,11 +449,11 @@ std::string ComposeItemMenuBody(const Player& player, const ItemDefinition& item
 {
     std::ostringstream body;
     body << ComposeStatusHeadline(player);
-    body << "[¼±ÅÃÇÑ ¾ÆÀÌÅÛ]\n";
-    body << item.name << " | º¸À¯ ¼ö·®: " << item.count << '\n';
+    body << "[ì„ íƒí•œ ì•„ì´í…œ]\n";
+    body << item.name << " | ë³´ìœ  ìˆ˜ëŸ‰: " << item.count << '\n';
     body << item.description << "\n\n";
     body << ComposePlayerPanel(player);
-    body << "ESC¸¦ ´©¸£¸é ÀüÅõ ¸Ş´º·Î µ¹¾Æ°£´Ù.\n";
+    body << "ESCë¥¼ ëˆ„ë¥´ë©´ ì „íˆ¬ ë©”ë‰´ë¡œ ëŒì•„ê°„ë‹¤.\n";
     return body.str();
 }
 }
@@ -369,7 +465,7 @@ BattleResult BattleScreen::Run(
     const ConsoleRenderer& renderer,
     const MenuInput& input) const
 {
-    const std::vector<std::string> options = {"°ø°İ", "½ºÅ³", "¾ÆÀÌÅÛ", "¹æ¾î", "µµÁÖ"};
+    const std::vector<std::string> options = {"ê³µê²©", "ìŠ¤í‚¬", "ì•„ì´í…œ", "ë°©ì–´", "ë„ì£¼"};
     int selected = 0;
     int enemyHp = enemy.hp;
     std::vector<std::string> battleLogs;
@@ -377,18 +473,18 @@ BattleResult BattleScreen::Run(
 
     if (battleType == BattleType::Boss)
     {
-        PushBattleLog(battleLogs, "10Ãş ÃÖ»óºÎ¿¡¼­ ½É¿¬ÀÇ Â¡Á¶°¡ ¸ğ½ÀÀ» µå·¯³Â´Ù.");
-        PushBattleLog(battleLogs, "¹°·¯¼³ °÷Àº ¾ø´Ù. ÀÌ ÀüÅõÀÇ ½ÂÆĞ°¡ Å½ÇèÀÇ ³¡À» °áÁ¤ÇÑ´Ù.");
+        PushBattleLog(battleLogs, "10ì¸µ ìµœìƒë¶€ì—ì„œ ì‹¬ì—°ì˜ ì§•ì¡°ê°€ ëª¨ìŠµì„ ë“œëŸ¬ëƒˆë‹¤.");
+        PushBattleLog(battleLogs, "ë¬¼ëŸ¬ì„¤ ê³³ì€ ì—†ë‹¤. ì´ ì „íˆ¬ì˜ ìŠ¹íŒ¨ê°€ íƒí—˜ì˜ ëì„ ê²°ì •í•œë‹¤.");
     }
     else
     {
-        PushBattleLog(battleLogs, "ÀüÅõ°¡ ½ÃÀÛµÇ¾ú´Ù.");
+        PushBattleLog(battleLogs, "ì „íˆ¬ê°€ ì‹œì‘ë˜ì—ˆë‹¤.");
     }
 
     for (;;)
     {
         renderer.Present(renderer.ComposeMenuFrame(
-            ComposeBattleTitle(player, "ÀüÅõ"),
+            ComposeBattleTitle(player, "ì „íˆ¬"),
             ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, selected, battleLogs),
             options,
             selected));
@@ -404,20 +500,37 @@ BattleResult BattleScreen::Run(
         {
             if (battleType == BattleType::Boss)
             {
-                PushBattleLog(battleLogs, "º¸½ºÀü¿¡¼­´Â µµ¸ÁÄ¥ ¼ö ¾ø´Ù.");
+                PushBattleLog(battleLogs, "ë³´ìŠ¤ì „ì—ì„œëŠ” ë„ë§ì¹  ìˆ˜ ì—†ë‹¤.");
                 continue;
             }
-            return BattleResult::Escape;
+            const D20Check fleeCheck = MakeD20Check(player.agility, 11);
+            if (fleeCheck.success)
+            {
+                PushBattleLog(battleLogs, "ë„ì£¼ ì„±ê³µ: " + FormatD20Check(fleeCheck));
+                return BattleResult::Escape;
+            }
+
+            PushBattleLog(battleLogs, "ë„ì£¼ ì‹¤íŒ¨: " + FormatD20Check(fleeCheck));
+            continue;
         }
 
         if (action.index == 4)
         {
             if (battleType == BattleType::Boss)
             {
-                PushBattleLog(battleLogs, "½É¿¬ÀÇ Â¡Á¶°¡ Åğ·Î¸¦ ¸·¾Ò´Ù.");
+                PushBattleLog(battleLogs, "ì‹¬ì—°ì˜ ì§•ì¡°ê°€ í‡´ë¡œë¥¼ ë§‰ì•˜ë‹¤.");
                 continue;
             }
-            return BattleResult::Escape;
+
+            const D20Check fleeCheck = MakeD20Check(player.agility, 11);
+            if (fleeCheck.success)
+            {
+                PushBattleLog(battleLogs, "ë„ì£¼ ì„±ê³µ: " + FormatD20Check(fleeCheck));
+                return BattleResult::Escape;
+            }
+
+            PushBattleLog(battleLogs, "ë„ì£¼ ì‹¤íŒ¨: " + FormatD20Check(fleeCheck));
+            continue;
         }
 
         bool guarded = false;
@@ -428,11 +541,26 @@ BattleResult BattleScreen::Run(
         switch (action.index)
         {
         case 0:
+        {
             performedAction = true;
-            playerDamage = ComputeDamage(player.atk, enemyGuarded ? (enemy.atk / 2) : (enemy.atk / 3));
+            const int target = BaseAttackDifficulty(battleType) + (enemyGuarded ? 2 : 0);
+            const D20Check hitCheck = MakeD20Check(PlayerAccuracyStat(player), target);
+            if (!hitCheck.success)
+            {
+                player.nextAttackMultiplier = 1;
+                PushBattleLog(battleLogs, "ê³µê²©ì´ ë¹—ë‚˜ê°”ë‹¤. " + FormatD20Check(hitCheck));
+                break;
+            }
+
+            const int enemyDefense = enemyGuarded ? (enemy.atk / 2) : std::max(1, enemy.atk / 3);
+            playerDamage = ComputePlayerDamage(player, enemyDefense);
+            playerDamage *= std::max(1, player.nextAttackMultiplier);
+            player.nextAttackMultiplier = 1;
             enemyHp = std::max(0, enemyHp - playerDamage);
-            PushBattleLog(battleLogs, "°ø°İÀÌ ÀûÁßÇØ " + std::to_string(playerDamage) + "ÀÇ ÇÇÇØ¸¦ ÁÖ¾ú´Ù.");
+            PushBattleLog(battleLogs, "ê³µê²© ì ì¤‘: " + FormatD20Check(hitCheck));
+            PushBattleLog(battleLogs, "ê³µê²©ì´ ì ì¤‘í•´ " + std::to_string(playerDamage) + "ì˜ í”¼í•´ë¥¼ ì£¼ì—ˆë‹¤.");
             break;
+        }
 
         case 1:
         {
@@ -448,7 +576,7 @@ BattleResult BattleScreen::Run(
                 }
 
                 renderer.Present(renderer.ComposeMenuFrame(
-                    ComposeBattleTitle(player, "½ºÅ³ ¼±ÅÃ"),
+                    ComposeBattleTitle(player, "ìŠ¤í‚¬ ì„ íƒ"),
                     ComposeSkillMenuBody(player, skills[skillSelected]),
                     skillOptions,
                     skillSelected));
@@ -470,18 +598,34 @@ BattleResult BattleScreen::Run(
 
                 if (player.mp < skill.mpCost)
                 {
-                    PushBattleLog(battleLogs, "MP°¡ ºÎÁ·ÇØ " + skill.name + "À»(¸¦) »ç¿ëÇÒ ¼ö ¾ø´Ù.");
+                    PushBattleLog(battleLogs, "MPê°€ ë¶€ì¡±í•´ " + skill.name + "ì„(ë¥¼) ì‚¬ìš©í•  ìˆ˜ ì—†ë‹¤.");
                     break;
                 }
 
                 player.mp -= skill.mpCost;
                 guarded = skill.grantsGuard;
-                playerDamage = ComputeDamage(player.atk + skill.attackBonus, enemyGuarded ? (enemy.atk / 2) : (enemy.atk / 6));
+                const int skillTarget = BaseAttackDifficulty(battleType) + 1 + (enemyGuarded ? 2 : 0);
+                const D20Check skillCheck = MakeD20Check(
+                    (player.job == JobClass::Warrior) ? player.strength : player.intelligence,
+                    skillTarget,
+                    (player.job == JobClass::Mage) ? 1 : 0);
+                if (!skillCheck.success)
+                {
+                    player.nextAttackMultiplier = 1;
+                    PushBattleLog(battleLogs, skill.name + " ì‹¤íŒ¨: " + FormatD20Check(skillCheck));
+                    break;
+                }
+
+                const int enemyDefense = enemyGuarded ? (enemy.atk / 2) : std::max(0, enemy.atk / 6);
+                playerDamage = ComputePlayerDamage(player, enemyDefense, skill.attackBonus);
+                playerDamage *= std::max(1, player.nextAttackMultiplier);
+                player.nextAttackMultiplier = 1;
                 enemyHp = std::max(0, enemyHp - playerDamage);
-                PushBattleLog(battleLogs, skill.name + "ÀÌ ÀûÁßÇØ " + std::to_string(playerDamage) + "ÀÇ ÇÇÇØ¸¦ ÁÖ¾ú´Ù.");
+                PushBattleLog(battleLogs, skill.name + " ì„±ê³µ: " + FormatD20Check(skillCheck));
+                PushBattleLog(battleLogs, skill.name + "ì´ ì ì¤‘í•´ " + std::to_string(playerDamage) + "ì˜ í”¼í•´ë¥¼ ì£¼ì—ˆë‹¤.");
                 if (skill.grantsGuard)
                 {
-                    PushBattleLog(battleLogs, "½ºÅ³ÀÇ ¿©ÆÄ·Î ÀÚ¼¼¸¦ °¡´Ùµë°í ¹æ¾î¸¦ °­È­Çß´Ù.");
+                    PushBattleLog(battleLogs, "ìŠ¤í‚¬ì˜ ì—¬íŒŒë¡œ ìì„¸ë¥¼ ê°€ë‹¤ë“¬ê³  ë°©ì–´ë¥¼ ê°•í™”í–ˆë‹¤.");
                 }
                 break;
             }
@@ -498,7 +642,7 @@ BattleResult BattleScreen::Run(
             const std::vector<ItemDefinition> items = BuildItemList(player);
             if (items.empty())
             {
-                PushBattleLog(battleLogs, "ÀüÅõ Áß »ç¿ëÇÒ ¼ö ÀÖ´Â ¾ÆÀÌÅÛÀÌ ¾ø´Ù.");
+                PushBattleLog(battleLogs, "ì „íˆ¬ ì¤‘ ì‚¬ìš©í•  ìˆ˜ ìˆëŠ” ì•„ì´í…œì´ ì—†ë‹¤.");
                 continue;
             }
 
@@ -513,7 +657,7 @@ BattleResult BattleScreen::Run(
                 }
 
                 renderer.Present(renderer.ComposeMenuFrame(
-                    ComposeBattleTitle(player, "¾ÆÀÌÅÛ ¼±ÅÃ"),
+                    ComposeBattleTitle(player, "ì•„ì´í…œ ì„ íƒ"),
                     ComposeItemMenuBody(player, items[itemSelected]),
                     itemOptions,
                     itemSelected));
@@ -530,38 +674,19 @@ BattleResult BattleScreen::Run(
                     break;
                 }
 
-                const ItemDefinition& chosenItem = items[itemAction.index];
+                const std::vector<ConsumableInfo> ownedConsumables = BuildOwnedConsumables(player);
+                const ConsumableInfo& chosenConsumable = ownedConsumables[itemAction.index];
                 performedAction = true;
 
-                if (chosenItem.name == "È¸º¹¾à")
+                std::string itemSummary;
+                if (!ApplyConsumableEffect(player, chosenConsumable, true, itemSummary))
                 {
-                    if (player.hp >= player.maxHp)
-                    {
-                        PushBattleLog(battleLogs, "HP°¡ °¡µæ Â÷ ÀÖ¾î È¸º¹¾àÀ» »ç¿ëÇÒ ¼ö ¾ø´Ù.");
-                        break;
-                    }
-
-                    player.hp = std::min(player.maxHp, player.hp + 35);
-                    --player.potionCount;
-                    PushBattleLog(battleLogs, "È¸º¹¾àÀ» »ç¿ëÇØ HP¸¦ È¸º¹Çß´Ù.");
+                    PushBattleLog(battleLogs, itemSummary);
                     break;
                 }
 
-                if (chosenItem.name == "¸¶³ª¾à")
-                {
-                    if (player.mp >= player.maxMp)
-                    {
-                        PushBattleLog(battleLogs, "MP°¡ °¡µæ Â÷ ÀÖ¾î ¸¶³ª¾àÀ» »ç¿ëÇÒ ¼ö ¾ø´Ù.");
-                        break;
-                    }
-
-                    player.mp = std::min(player.maxMp, player.mp + 20);
-                    --player.etherCount;
-                    PushBattleLog(battleLogs, "¸¶³ª¾àÀ» »ç¿ëÇØ MP¸¦ È¸º¹Çß´Ù.");
-                    break;
-                }
-
-                PushBattleLog(battleLogs, "ÀÌ ¾ÆÀÌÅÛÀº ¾ÆÁ÷ ÀüÅõ¿¡¼­ »ç¿ëÇÒ ¼ö ¾ø´Ù.");
+                ConsumeConsumable(player, chosenConsumable.id, 1);
+                PushBattleLog(battleLogs, itemSummary);
                 break;
             }
 
@@ -575,7 +700,7 @@ BattleResult BattleScreen::Run(
         case 3:
             performedAction = true;
             guarded = true;
-            PushBattleLog(battleLogs, "¹æ¾î ÀÚ¼¼¸¦ ÃëÇß´Ù.");
+            PushBattleLog(battleLogs, "ë°©ì–´ ìì„¸ë¥¼ ì·¨í–ˆë‹¤.");
             break;
 
         default:
@@ -584,14 +709,32 @@ BattleResult BattleScreen::Run(
 
         if (enemyGuarded && enemyHp > 0)
         {
-            PushBattleLog(battleLogs, enemy.name + "ÀÌ(°¡) Ãæ°İÀ» ÁÙÀÏ ÀÚ¼¼¸¦ °®Ãß°í ÀÖ¾ú´Ù.");
+            PushBattleLog(battleLogs, enemy.name + "ì´(ê°€) ì¶©ê²©ì„ ì¤„ì¼ ìì„¸ë¥¼ ê°–ì¶”ê³  ìˆì—ˆë‹¤.");
         }
 
         if (enemyHp <= 0)
         {
-            PushBattleLog(battleLogs, enemy.name + "À»(¸¦) ¾²·¯¶ß·È´Ù.");
+            const D20Check recoveryCheck = MakeD20Check(player.spirit, 11);
+            if (recoveryCheck.success)
+            {
+                const int hpRecovery = std::min(player.maxHp - player.hp, RecoveryAmountFromSpirit(player, true));
+                const int mpRecovery = std::min(player.maxMp - player.mp, RecoveryAmountFromSpirit(player, false));
+                player.hp += std::max(0, hpRecovery);
+                player.mp += std::max(0, mpRecovery);
+                PushBattleLog(battleLogs, "ìì—° íšŒë³µ ì„±ê³µ: " + FormatD20Check(recoveryCheck));
+                if (hpRecovery > 0 || mpRecovery > 0)
+                {
+                    PushBattleLog(battleLogs, "ì „íˆ¬ í›„ HP " + std::to_string(hpRecovery) + ", MP " + std::to_string(mpRecovery) + " íšŒë³µ.");
+                }
+            }
+            else
+            {
+                PushBattleLog(battleLogs, "ìì—° íšŒë³µ ì‹¤íŒ¨: " + FormatD20Check(recoveryCheck));
+            }
+
+            PushBattleLog(battleLogs, enemy.name + "ì„(ë¥¼) ì“°ëŸ¬ëœ¨ë ¸ë‹¤.");
             renderer.Present(renderer.ComposeMenuFrame(
-                ComposeBattleTitle(player, "ÀüÅõ ½Â¸®"),
+                ComposeBattleTitle(player, "ì „íˆ¬ ìŠ¹ë¦¬"),
                 ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, selected, battleLogs),
                 options,
                 selected));
@@ -603,31 +746,42 @@ BattleResult BattleScreen::Run(
             const int recoverAmount = (battleType == BattleType::Boss) ? 18 : 12;
             const int previousHp = enemyHp;
             enemyHp = std::min(enemy.hp, enemyHp + recoverAmount);
-            PushBattleLog(battleLogs, enemy.name + "ÀÌ(°¡) ¸öÀ» Ãß½½·¯ HP¸¦ " + std::to_string(enemyHp - previousHp) + " È¸º¹Çß´Ù.");
+            PushBattleLog(battleLogs, enemy.name + "ì´(ê°€) ëª¸ì„ ì¶”ìŠ¬ëŸ¬ HPë¥¼ " + std::to_string(enemyHp - previousHp) + " íšŒë³µí–ˆë‹¤.");
         }
         else if (pendingEnemyIntent == EnemyIntent::Guard)
         {
-            PushBattleLog(battleLogs, enemy.name + "ÀÌ(°¡) ¹æ¾î ÀÚ¼¼¸¦ ÃëÇß´Ù. ´ÙÀ½ ÅÏ¿¡´Â ÇÇÇØ°¡ ÁÙ¾îµé ¼ö ÀÖ´Ù.");
+            PushBattleLog(battleLogs, enemy.name + "ì´(ê°€) ë°©ì–´ ìì„¸ë¥¼ ì·¨í–ˆë‹¤. ë‹¤ìŒ í„´ì—ëŠ” í”¼í•´ê°€ ì¤„ì–´ë“¤ ìˆ˜ ìˆë‹¤.");
         }
         else
         {
             const int defenseValue = guarded ? player.def + 6 : player.def;
-            int enemyDamage = ComputeDamage(enemy.atk, defenseValue);
-
-            if (player.job == JobClass::Warrior)
+            const int target = guarded ? 13 : 11;
+            const D20Check enemyCheck = MakeD20Check(player.agility, target);
+            if (!enemyCheck.success)
             {
-                enemyDamage = std::max(1, enemyDamage - 2);
-            }
-
-            player.hp = std::max(0, player.hp - enemyDamage);
-
-            if (guarded)
-            {
-                PushBattleLog(battleLogs, "ÀûÀÇ ¹İ°İÀ» ¹Ş¾Æ " + std::to_string(enemyDamage) + "ÀÇ ÇÇÇØ¸¦ ÀÔ¾úÁö¸¸ ¹æ¾î·Î Ãæ°İÀ» ÁÙ¿´´Ù.");
+                PushBattleLog(battleLogs, "ì ì˜ ê³µê²©ì´ ë¹—ë‚˜ê°”ë‹¤. " + FormatD20Check(enemyCheck));
             }
             else
             {
-                PushBattleLog(battleLogs, "ÀûÀÇ ¹İ°İÀ¸·Î " + std::to_string(enemyDamage) + "ÀÇ ÇÇÇØ¸¦ ÀÔ¾ú´Ù.");
+                int enemyDamage = ComputeEnemyDamage(enemy, defenseValue);
+
+                if (player.job == JobClass::Warrior)
+                {
+                    enemyDamage = std::max(1, enemyDamage - 2);
+                }
+
+                player.hp = std::max(0, player.hp - enemyDamage);
+
+                if (guarded)
+                {
+                    PushBattleLog(battleLogs, "ì ì˜ ê³µê²© ì ì¤‘: " + FormatD20Check(enemyCheck));
+                    PushBattleLog(battleLogs, "ì ì˜ ë°˜ê²©ì„ ë°›ì•„ " + std::to_string(enemyDamage) + "ì˜ í”¼í•´ë¥¼ ì…ì—ˆì§€ë§Œ ë°©ì–´ë¡œ ì¶©ê²©ì„ ì¤„ì˜€ë‹¤.");
+                }
+                else
+                {
+                    PushBattleLog(battleLogs, "ì ì˜ ê³µê²© ì ì¤‘: " + FormatD20Check(enemyCheck));
+                    PushBattleLog(battleLogs, "ì ì˜ ë°˜ê²©ìœ¼ë¡œ " + std::to_string(enemyDamage) + "ì˜ í”¼í•´ë¥¼ ì…ì—ˆë‹¤.");
+                }
             }
         }
 
@@ -637,13 +791,13 @@ BattleResult BattleScreen::Run(
             if (recoveredMp > 0)
             {
                 player.mp += recoveredMp;
-                PushBattleLog(battleLogs, "¸¶·Â ¼øÈ¯À¸·Î MP¸¦ " + std::to_string(recoveredMp) + " È¸º¹Çß´Ù.");
+                PushBattleLog(battleLogs, "ë§ˆë ¥ ìˆœí™˜ìœ¼ë¡œ MPë¥¼ " + std::to_string(recoveredMp) + " íšŒë³µí–ˆë‹¤.");
             }
         }
 
         if (player.hp <= 0)
         {
-            PushBattleLog(battleLogs, "ÇÃ·¹ÀÌ¾î°¡ ¾²·¯Á³´Ù.");
+            PushBattleLog(battleLogs, "í”Œë ˆì´ì–´ê°€ ì“°ëŸ¬ì¡Œë‹¤.");
             return BattleResult::Defeat;
         }
 

@@ -1,5 +1,6 @@
-#include "game/screens/EventScreen.h"
+ï»¿#include "game/screens/EventScreen.h"
 
+#include "game/ConsumableData.h"
 #include "game/screens/MessageScreen.h"
 
 #define NOMINMAX
@@ -262,10 +263,10 @@ std::string ComposeEventBody(const EventDefinition& event, const EventChoice& se
 {
     std::ostringstream body;
     body << event.flavorText << "\n\n";
-    body << "[¼±ÅÃÇÑ Çàµ¿]\n";
+    body << "[ì„ íƒí•œ í–‰ë™]\n";
     body << selectedChoice.label << "\n\n";
-    body << "[¾È³»]\n";
-    body << "¹æÇâÅ°·Î ¼±ÅÃÇÏ°í Enter·Î ÁøÇàÇÑ´Ù.";
+    body << "[ì•ˆë‚´]\n";
+    body << "ë°©í–¥í‚¤ë¡œ ì„ íƒí•˜ê³  Enterë¡œ ì§„í–‰í•œë‹¤.";
     return body.str();
 }
 
@@ -293,6 +294,7 @@ std::string ApplyEffects(Player& player, const std::string& effectText)
     }();
 
     std::ostringstream summary;
+    bool shouldRefreshDerivedStats = false;
     for (const std::string& rawEffect : splitByPipe)
     {
         const std::string effect = Trim(rawEffect);
@@ -314,7 +316,7 @@ std::string ApplyEffects(Player& player, const std::string& effectText)
         if (key == "relic")
         {
             AddRelic(player, value);
-            summary << "- À¯¹° È¹µæ: " << value << '\n';
+            summary << "- ìœ ë¬¼ íšë“: " << value << '\n';
         }
         else if (key == "hp")
         {
@@ -333,36 +335,45 @@ std::string ApplyEffects(Player& player, const std::string& effectText)
         }
         else if (key == "atk")
         {
-            player.atk += amount;
+            player.bonusAttackPower += amount;
             summary << "- ATK " << ((amount >= 0) ? "+" : "") << amount << '\n';
+            shouldRefreshDerivedStats = true;
         }
         else if (key == "def")
         {
-            player.def += amount;
+            player.bonusDefense += amount;
             summary << "- DEF " << ((amount >= 0) ? "+" : "") << amount << '\n';
+            shouldRefreshDerivedStats = true;
         }
         else if (key == "maxHp")
         {
-            player.maxHp = std::max(1, player.maxHp + amount);
-            player.hp = std::clamp(player.hp, 0, player.maxHp);
-            summary << "- ÃÖ´ë HP " << ((amount >= 0) ? "+" : "") << amount << '\n';
+            player.bonusMaxHp += amount;
+            summary << "- ìµœëŒ€ HP " << ((amount >= 0) ? "+" : "") << amount << '\n';
+            shouldRefreshDerivedStats = true;
         }
         else if (key == "maxMp")
         {
-            player.maxMp = std::max(0, player.maxMp + amount);
-            player.mp = std::clamp(player.mp, 0, player.maxMp);
-            summary << "- ÃÖ´ë MP " << ((amount >= 0) ? "+" : "") << amount << '\n';
+            player.bonusMaxMp += amount;
+            summary << "- ìµœëŒ€ MP " << ((amount >= 0) ? "+" : "") << amount << '\n';
+            shouldRefreshDerivedStats = true;
         }
         else if (key == "potion")
         {
             player.potionCount = std::max(0, player.potionCount + amount);
-            summary << "- È¸º¹¾à " << ((amount >= 0) ? "+" : "") << amount << '\n';
+            AddConsumable(player, "201", amount);
+            summary << "- íšŒë³µì•½ " << ((amount >= 0) ? "+" : "") << amount << '\n';
         }
         else if (key == "ether")
         {
             player.etherCount = std::max(0, player.etherCount + amount);
-            summary << "- ¿¡Å×¸£ " << ((amount >= 0) ? "+" : "") << amount << '\n';
+            AddConsumable(player, "203", amount);
+            summary << "- ì—í…Œë¥´ " << ((amount >= 0) ? "+" : "") << amount << '\n';
         }
+    }
+
+    if (shouldRefreshDerivedStats)
+    {
+        RefreshDerivedStats(player);
     }
 
     return summary.str();
@@ -425,7 +436,7 @@ GameState EventScreen::Run(
     const EventDefinition* selectedEvent = SelectEvent(player);
     if (selectedEvent == nullptr)
     {
-        messageScreen.Show(renderer, input, "ÀÌº¥Æ®", "ÇöÀç Ãþ¿¡¼­ Ç¥½ÃÇÒ ¼ö ÀÖ´Â ÀÌº¥Æ®°¡ ¾ø´Ù.");
+        messageScreen.Show(renderer, input, "ì´ë²¤íŠ¸", "í˜„ìž¬ ì¸µì—ì„œ í‘œì‹œí•  ìˆ˜ ìžˆëŠ” ì´ë²¤íŠ¸ê°€ ì—†ë‹¤.");
         ++player.floor;
         return GameState::Prep;
     }
@@ -464,7 +475,7 @@ GameState EventScreen::Run(
         resultBody << chosen.resultText;
         if (!effectSummary.empty())
         {
-            resultBody << "\n\n[Àû¿ë °á°ú]\n" << effectSummary;
+            resultBody << "\n\n[ì ìš© ê²°ê³¼]\n" << effectSummary;
         }
 
         messageScreen.Show(renderer, input, selectedEvent->name, resultBody.str());
