@@ -51,7 +51,7 @@ struct EnemyStatusState
 
 struct EnemyStatusPattern
 {
-    std::string enemyName;
+    std::string enemyId;
     std::vector<std::string> battleTypes;
     std::string statusType;
     int applyDifficulty = 0;
@@ -364,7 +364,7 @@ std::vector<EnemyStatusPattern> LoadEnemyStatusPatterns()
         }
 
         EnemyStatusPattern pattern;
-        pattern.enemyName = GetColumn(columns, headerMap, "enemy_name");
+        pattern.enemyId = GetColumn(columns, headerMap, "enemy_id");
         pattern.battleTypes = SplitByPipe(GetColumn(columns, headerMap, "battle_type"));
         pattern.statusType = GetColumn(columns, headerMap, "status_type");
         pattern.applyDifficulty = ToInt(GetColumn(columns, headerMap, "apply_difficulty"), 0);
@@ -372,7 +372,7 @@ std::vector<EnemyStatusPattern> LoadEnemyStatusPatterns()
         pattern.triggerCondition = GetColumn(columns, headerMap, "trigger_condition");
         pattern.triggerChance = ToInt(GetColumn(columns, headerMap, "trigger_chance"), 0);
 
-        if (!pattern.enemyName.empty() && pattern.statusType != "none")
+        if (!pattern.enemyId.empty() && pattern.statusType != "none")
         {
             patterns.push_back(pattern);
         }
@@ -678,7 +678,7 @@ void TryApplyEnemyPatterns(
 {
     for (const EnemyStatusPattern& pattern : EnemyStatusPatternRegistry())
     {
-        if (pattern.enemyName != enemy.name || !PatternMatchesBattleType(pattern, battleType))
+        if (pattern.enemyId != enemy.id || !PatternMatchesBattleType(pattern, battleType))
         {
             continue;
         }
