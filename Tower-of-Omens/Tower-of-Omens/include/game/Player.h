@@ -35,6 +35,10 @@ struct Player
     int bonusDefense = 0;
     int bonusMaxHp = 0;
     int bonusMaxMp = 0;
+    int burnTurns = 0;
+    int wetTurns = 0;
+    int bindTurns = 0;
+    int staggerTurns = 0;
     int potionCount = 0;
     int etherCount = 0;
     int nextAttackMultiplier = 1;

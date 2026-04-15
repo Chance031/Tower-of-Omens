@@ -363,6 +363,35 @@ std::string ComposeStatusPanel(const Player& player)
     body << "GOLD " << player.gold << " | 스탯 포인트 " << player.statPoints << '\n';
     body << "무기 " << player.weaponName << " (공격 보정 +" << player.weaponAtkBonus << ")\n";
     body << "방어구 " << player.armorName << " (방어 보정 +" << player.armorDefBonus << ")\n";
+    body << "상태이상 ";
+    if (player.burnTurns <= 0 && player.wetTurns <= 0 && player.bindTurns <= 0 && player.staggerTurns <= 0)
+    {
+        body << "없음\n";
+    }
+    else
+    {
+        bool first = true;
+        if (player.burnTurns > 0)
+        {
+            body << (first ? "" : ", ") << "화상 " << player.burnTurns << "턴";
+            first = false;
+        }
+        if (player.wetTurns > 0)
+        {
+            body << (first ? "" : ", ") << "습기 " << player.wetTurns << "턴";
+            first = false;
+        }
+        if (player.bindTurns > 0)
+        {
+            body << (first ? "" : ", ") << "속박 " << player.bindTurns << "턴";
+            first = false;
+        }
+        if (player.staggerTurns > 0)
+        {
+            body << (first ? "" : ", ") << "경직 " << player.staggerTurns << "턴";
+        }
+        body << '\n';
+    }
     body << "유물 " << player.relicNames.size() << "개\n";
     return body.str();
 }
