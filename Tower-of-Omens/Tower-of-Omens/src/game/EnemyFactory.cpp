@@ -27,6 +27,7 @@ struct EnemyDefinition
     std::string description;
 };
 
+// 현재 층을 바탕으로 적 스탯 보정값을 계산한다.
 int FloorBonus(int floor, int step)
 {
     if (floor <= 1)
@@ -332,8 +333,8 @@ Enemy BuildEnemyFromDefinition(const EnemyDefinition& definition, BattleType bat
 
     if (battleType != BattleType::Boss)
     {
-        enemy.hp += FloorBonus(floor, 6);
-        enemy.atk += FloorBonus(floor, 2);
+        enemy.hp        += FloorBonus(floor, 6);
+        enemy.atk       += FloorBonus(floor, 2);
         enemy.goldReward += FloorBonus(floor, 3);
     }
 
