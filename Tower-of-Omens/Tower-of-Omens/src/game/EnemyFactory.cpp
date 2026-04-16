@@ -15,7 +15,7 @@ namespace
 {
 struct EnemyDefinition
 {
-    std::string id;
+    int id = 0;
     std::string name;
     std::string battleType;
     std::string path;
@@ -25,6 +25,10 @@ struct EnemyDefinition
     int floorMin = 1;
     int floorMax = 999;
     std::string description;
+    int intentBiasAttack = 0;
+    int intentBiasGuard = 0;
+    int intentBiasRecover = 0;
+    double intentThresholdHp = 0.0;
 };
 
 // 현재 층을 바탕으로 적 스탯 보정값을 계산한다.
@@ -96,6 +100,18 @@ int ToInt(const std::string& value, int fallback = 0)
     try
     {
         return std::stoi(Trim(value));
+    }
+    catch (...)
+    {
+        return fallback;
+    }
+}
+
+double ToDouble(const std::string& value, double fallback = 0.0)
+{
+    try
+    {
+        return std::stod(Trim(value));
     }
     catch (...)
     {
@@ -239,7 +255,7 @@ std::vector<EnemyDefinition> LoadEnemyDefinitions()
         }
 
         EnemyDefinition definition;
-        definition.id = GetColumn(columns, headerMap, "id");
+        definition.id = ToInt(GetColumn(columns, headerMap, "id"), 0);
         definition.name = GetColumn(columns, headerMap, "name");
         definition.battleType = GetColumn(columns, headerMap, "battle_type");
         definition.path = GetColumn(columns, headerMap, "path");
@@ -249,6 +265,10 @@ std::vector<EnemyDefinition> LoadEnemyDefinitions()
         definition.floorMin = ToInt(GetColumn(columns, headerMap, "floor_min"), 1);
         definition.floorMax = ToInt(GetColumn(columns, headerMap, "floor_max"), 999);
         definition.description = GetColumn(columns, headerMap, "description");
+        definition.intentBiasAttack = ToInt(GetColumn(columns, headerMap, "intent_bias_attack"), 0);
+        definition.intentBiasGuard = ToInt(GetColumn(columns, headerMap, "intent_bias_guard"), 0);
+        definition.intentBiasRecover = ToInt(GetColumn(columns, headerMap, "intent_bias_recover"), 0);
+        definition.intentThresholdHp = ToDouble(GetColumn(columns, headerMap, "intent_threshold_hp"), 0.0);
 
         if (!definition.name.empty())
         {
@@ -330,6 +350,10 @@ Enemy BuildEnemyFromDefinition(const EnemyDefinition& definition, BattleType bat
     enemy.hp = definition.baseHp;
     enemy.atk = definition.baseAtk;
     enemy.goldReward = definition.goldReward;
+    enemy.intentBiasAttack = definition.intentBiasAttack;
+    enemy.intentBiasGuard = definition.intentBiasGuard;
+    enemy.intentBiasRecover = definition.intentBiasRecover;
+    enemy.intentThresholdHp = definition.intentThresholdHp;
 
     if (battleType != BattleType::Boss)
     {
@@ -375,7 +399,7 @@ Enemy EnemyFactory::Create(BattleType battleType, PathChoice path, int floor) co
 
     if (candidates.empty())
     {
-        return {"fallback_enemy", "Training Slime", 20, 5, 5};
+        return {0, "Training Slime", 20, 5, 5, 8, 1, 1, 0.0};
     }
 
     const EnemyDefinition& selected = *candidates[RandomIndex(static_cast<int>(candidates.size()))];

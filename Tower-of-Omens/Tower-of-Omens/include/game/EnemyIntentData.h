@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // CSV(enemy_base.csv)에서 로드한 적 행동 성향 데이터다.
 struct EnemyIntentData

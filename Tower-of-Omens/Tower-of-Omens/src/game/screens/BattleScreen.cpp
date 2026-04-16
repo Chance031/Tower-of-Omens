@@ -51,20 +51,13 @@ struct EnemyStatusState
 
 struct EnemyStatusPattern
 {
-    std::string enemyId;
+    int enemyId = 0;
     std::vector<std::string> battleTypes;
     std::string statusType;
     int applyDifficulty = 0;
     int durationTurns = 0;
     std::string triggerCondition;
     int triggerChance = 0;
-};
-
-enum class EnemyIntent
-{
-    Attack,
-    Guard,
-    Recover
 };
 
 std::string BattleTypeName(BattleType battleType)
@@ -364,7 +357,7 @@ std::vector<EnemyStatusPattern> LoadEnemyStatusPatterns()
         }
 
         EnemyStatusPattern pattern;
-        pattern.enemyId = GetColumn(columns, headerMap, "enemy_id");
+        pattern.enemyId = ToInt(GetColumn(columns, headerMap, "enemy_id"), 0);
         pattern.battleTypes = SplitByPipe(GetColumn(columns, headerMap, "battle_type"));
         pattern.statusType = GetColumn(columns, headerMap, "status_type");
         pattern.applyDifficulty = ToInt(GetColumn(columns, headerMap, "apply_difficulty"), 0);
@@ -372,7 +365,7 @@ std::vector<EnemyStatusPattern> LoadEnemyStatusPatterns()
         pattern.triggerCondition = GetColumn(columns, headerMap, "trigger_condition");
         pattern.triggerChance = ToInt(GetColumn(columns, headerMap, "trigger_chance"), 0);
 
-        if (!pattern.enemyId.empty() && pattern.statusType != "none")
+        if (pattern.enemyId > 0 && pattern.statusType != "none")
         {
             patterns.push_back(pattern);
         }
@@ -708,48 +701,25 @@ void TryApplyEnemyPatterns(
     }
 }
 
-EnemyIntent RollEnemyIntent(int enemyHp, int enemyMaxHp, BattleType battleType)
+EnemyIntent RollEnemyIntent(
+    const Enemy& enemy,
+    const std::unordered_map<int, EnemyIntentData>& intentMap,
+    int enemyHp,
+    BattleType battleType)
 {
-    const int hpRate = (enemyMaxHp <= 0) ? 100 : (enemyHp * 100) / enemyMaxHp;
-    const int roll = RandomPercent();
-
-    if (hpRate <= 35)
-    {
-        if (roll <= 30)
-        {
-            return EnemyIntent::Recover;
-        }
-        if (roll <= 55)
-        {
-            return EnemyIntent::Guard;
-        }
-        return EnemyIntent::Attack;
-    }
+    EnemyIntentData intentData = FindIntentData(intentMap, enemy.id);
 
     if (battleType == BattleType::Boss)
     {
-        if (roll <= 20)
-        {
-            return EnemyIntent::Guard;
-        }
-        return EnemyIntent::Attack;
+        intentData.biasGuard += 1;
+        intentData.biasRecover += 1;
     }
-
-    if (battleType == BattleType::Elite)
+    else if (battleType == BattleType::Elite)
     {
-        if (roll <= 25)
-        {
-            return EnemyIntent::Guard;
-        }
-        return EnemyIntent::Attack;
+        intentData.biasAttack += 1;
     }
 
-    if (roll <= 20)
-    {
-        return EnemyIntent::Guard;
-    }
-
-    return EnemyIntent::Attack;
+    return DecideEnemyIntent(intentData, enemyHp, enemy.hp, RollDie(1, 20));
 }
 
 std::vector<SkillDefinition> BuildSkillList(JobClass job, int level)
@@ -885,7 +855,6 @@ std::string ComposeEnemyPanel(
     body << "ATK " << enemy.atk << " | 보상 " << enemy.goldReward << " Gold\n";
     body << "기본 회피 난도 " << BaseAttackDifficulty(battleType) << '\n';
     body << "상태이상 " << ComposeEnemyStatusText(enemyStatus) << '\n';
-
     if (HasObservationRelic(player))
     {
         body << "다음 행동: " << EnemyIntentName(nextIntent) << "\n";
@@ -960,6 +929,7 @@ BattleResult BattleScreen::Run(
     Player& player,
     const Enemy& enemy,
     BattleType battleType,
+    const std::unordered_map<int, EnemyIntentData>& intentMap,
     const ConsoleRenderer& renderer,
     const MenuInput& input) const
 {
@@ -968,7 +938,7 @@ BattleResult BattleScreen::Run(
     int enemyHp = enemy.hp;
     int turnCount = 1;
     std::vector<std::string> battleLogs;
-    EnemyIntent pendingEnemyIntent = RollEnemyIntent(enemyHp, enemy.hp, battleType);
+    EnemyIntent pendingEnemyIntent = RollEnemyIntent(enemy, intentMap, enemyHp, battleType);
     EnemyStatusState enemyStatus;
 
     if (battleType == BattleType::Boss)
@@ -1061,7 +1031,7 @@ BattleResult BattleScreen::Run(
                 return BattleResult::Victory;
             }
 
-            pendingEnemyIntent = RollEnemyIntent(enemyHp, enemy.hp, battleType);
+            pendingEnemyIntent = RollEnemyIntent(enemy, intentMap, enemyHp, battleType);
             ++turnCount;
             continue;
         }
@@ -1463,7 +1433,7 @@ BattleResult BattleScreen::Run(
             return BattleResult::Victory;
         }
 
-        pendingEnemyIntent = RollEnemyIntent(enemyHp, enemy.hp, battleType);
+        pendingEnemyIntent = RollEnemyIntent(enemy, intentMap, enemyHp, battleType);
         ++turnCount;
     }
 }

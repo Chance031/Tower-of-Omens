@@ -10,6 +10,7 @@
 #include "game/screens/TitleScreen.h"
 
 #include <algorithm>
+#include <fstream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -28,6 +29,27 @@ struct RelicDefinition
     std::string name;
     std::string description;
 };
+
+std::string ResolveEnemyBaseCsvPath()
+{
+    const std::vector<std::string> candidates = {
+        "assets/data/enemy_base.csv",
+        "../assets/data/enemy_base.csv",
+        "../../assets/data/enemy_base.csv",
+        "Tower-of-Omens/assets/data/enemy_base.csv",
+    };
+
+    for (const std::string& path : candidates)
+    {
+        std::ifstream file(path, std::ios::binary);
+        if (file)
+        {
+            return path;
+        }
+    }
+
+    return "";
+}
 
 void SetConsumableCount(Player& player, const std::string& id, int count)
 {
@@ -461,7 +483,8 @@ GameState Game::RunEncounterState(
     const MenuInput& input)
 {
     const Enemy enemy = m_enemyFactory.Create(battleType, m_pendingPathChoice, m_player.floor);
-    const BattleResult result = battleScreen.Run(m_player, enemy, battleType, m_renderer, input);
+    const std::unordered_map<int, EnemyIntentData> intentMap = LoadEnemyIntents(ResolveEnemyBaseCsvPath());
+    const BattleResult result = battleScreen.Run(m_player, enemy, battleType, intentMap, m_renderer, input);
 
     if (result == BattleResult::Defeat)
     {
