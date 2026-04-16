@@ -1,12 +1,9 @@
 ﻿#include "game/screens/BattleScreen.h"
 #include "game/ConsumableData.h"
-
-#define NOMINMAX
-#include <Windows.h>
+#include "game/CsvUtils.h"
 
 #include <algorithm>
 #include <cmath>
-#include <fstream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -145,163 +142,9 @@ int RandomPercent()
     return distribution(generator);
 }
 
-std::string Trim(const std::string& value)
-{
-    std::size_t start = 0;
-    while (start < value.size() && (value[start] == ' ' || value[start] == '\t' || value[start] == '\r'))
-    {
-        ++start;
-    }
-
-    std::size_t end = value.size();
-    while (end > start && (value[end - 1] == ' ' || value[end - 1] == '\t' || value[end - 1] == '\r'))
-    {
-        --end;
-    }
-
-    return value.substr(start, end - start);
-}
-
-std::vector<std::string> ParseCsvLine(const std::string& line)
-{
-    std::vector<std::string> columns;
-    std::string current;
-    bool inQuotes = false;
-
-    for (std::size_t i = 0; i < line.size(); ++i)
-    {
-        const char ch = line[i];
-        if (ch == '"')
-        {
-            if (inQuotes && i + 1 < line.size() && line[i + 1] == '"')
-            {
-                current.push_back('"');
-                ++i;
-                continue;
-            }
-
-            inQuotes = !inQuotes;
-            continue;
-        }
-
-        if (ch == ',' && !inQuotes)
-        {
-            columns.push_back(current);
-            current.clear();
-            continue;
-        }
-
-        current.push_back(ch);
-    }
-
-    columns.push_back(current);
-    return columns;
-}
-
-int ToInt(const std::string& value, int fallback = 0)
-{
-    try
-    {
-        return std::stoi(Trim(value));
-    }
-    catch (...)
-    {
-        return fallback;
-    }
-}
-
-std::string ConvertUtf8ToConsoleEncoding(const std::string& utf8Text)
-{
-    if (utf8Text.empty())
-    {
-        return "";
-    }
-
-    const int wideLength = MultiByteToWideChar(CP_UTF8, 0, utf8Text.c_str(), static_cast<int>(utf8Text.size()), nullptr, 0);
-    if (wideLength <= 0)
-    {
-        return utf8Text;
-    }
-
-    std::wstring wideText(static_cast<std::size_t>(wideLength), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8Text.c_str(), static_cast<int>(utf8Text.size()), wideText.data(), wideLength);
-
-    const int encodedLength = WideCharToMultiByte(949, 0, wideText.c_str(), wideLength, nullptr, 0, nullptr, nullptr);
-    if (encodedLength <= 0)
-    {
-        return utf8Text;
-    }
-
-    std::string converted(static_cast<std::size_t>(encodedLength), '\0');
-    WideCharToMultiByte(949, 0, wideText.c_str(), wideLength, converted.data(), encodedLength, nullptr, nullptr);
-    return converted;
-}
-
-std::string LoadTextFile(const std::string& path)
-{
-    std::ifstream file(path, std::ios::binary);
-    if (!file)
-    {
-        return "";
-    }
-
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    std::string content = buffer.str();
-    if (content.size() >= 3 &&
-        static_cast<unsigned char>(content[0]) == 0xEF &&
-        static_cast<unsigned char>(content[1]) == 0xBB &&
-        static_cast<unsigned char>(content[2]) == 0xBF)
-    {
-        content.erase(0, 3);
-    }
-
-    return ConvertUtf8ToConsoleEncoding(content);
-}
-
 std::string ResolveCsvPath(const std::string& fileName)
 {
-    const std::vector<std::string> candidates = {
-        "assets/data/" + fileName,
-        "../assets/data/" + fileName,
-        "../../assets/data/" + fileName,
-        "Tower-of-Omens/assets/data/" + fileName,
-    };
-
-    for (const std::string& path : candidates)
-    {
-        std::ifstream file(path, std::ios::binary);
-        if (file)
-        {
-            return path;
-        }
-    }
-
-    return "";
-}
-
-std::unordered_map<std::string, std::size_t> BuildHeaderMap(const std::vector<std::string>& headers)
-{
-    std::unordered_map<std::string, std::size_t> map;
-    for (std::size_t i = 0; i < headers.size(); ++i)
-    {
-        map[Trim(headers[i])] = i;
-    }
-    return map;
-}
-
-std::string GetColumn(
-    const std::vector<std::string>& columns,
-    const std::unordered_map<std::string, std::size_t>& headers,
-    const std::string& key)
-{
-    const auto found = headers.find(key);
-    if (found == headers.end() || found->second >= columns.size())
-    {
-        return "";
-    }
-
-    return Trim(columns[found->second]);
+    return csv::ResolveCsvPath(fileName);
 }
 
 std::vector<std::string> SplitByPipe(const std::string& value)
@@ -311,7 +154,7 @@ std::vector<std::string> SplitByPipe(const std::string& value)
     std::string part;
     while (std::getline(stream, part, '|'))
     {
-        parts.push_back(Trim(part));
+            parts.push_back(csv::Trim(part));
     }
     return parts;
 }
@@ -324,7 +167,7 @@ std::vector<EnemyStatusPattern> LoadEnemyStatusPatterns()
         return {};
     }
 
-    const std::string content = LoadTextFile(path);
+    const std::string content = csv::LoadTextFile(path);
     if (content.empty())
     {
         return {};
@@ -343,27 +186,27 @@ std::vector<EnemyStatusPattern> LoadEnemyStatusPatterns()
             line.pop_back();
         }
 
-        if (Trim(line).empty())
+        if (csv::Trim(line).empty())
         {
             continue;
         }
 
-        const std::vector<std::string> columns = ParseCsvLine(line);
+        const std::vector<std::string> columns = csv::ParseCsvLine(line);
         if (isHeader)
         {
-            headerMap = BuildHeaderMap(columns);
+            headerMap = csv::BuildHeaderMap(columns);
             isHeader = false;
             continue;
         }
 
         EnemyStatusPattern pattern;
-        pattern.enemyId = ToInt(GetColumn(columns, headerMap, "enemy_id"), 0);
-        pattern.battleTypes = SplitByPipe(GetColumn(columns, headerMap, "battle_type"));
-        pattern.statusType = GetColumn(columns, headerMap, "status_type");
-        pattern.applyDifficulty = ToInt(GetColumn(columns, headerMap, "apply_difficulty"), 0);
-        pattern.durationTurns = ToInt(GetColumn(columns, headerMap, "duration_turns"), 0);
-        pattern.triggerCondition = GetColumn(columns, headerMap, "trigger_condition");
-        pattern.triggerChance = ToInt(GetColumn(columns, headerMap, "trigger_chance"), 0);
+        pattern.enemyId = csv::ToInt(csv::GetColumn(columns, headerMap, "enemy_id"), 0);
+        pattern.battleTypes = SplitByPipe(csv::GetColumn(columns, headerMap, "battle_type"));
+        pattern.statusType = csv::GetColumn(columns, headerMap, "status_type");
+        pattern.applyDifficulty = csv::ToInt(csv::GetColumn(columns, headerMap, "apply_difficulty"), 0);
+        pattern.durationTurns = csv::ToInt(csv::GetColumn(columns, headerMap, "duration_turns"), 0);
+        pattern.triggerCondition = csv::GetColumn(columns, headerMap, "trigger_condition");
+        pattern.triggerChance = csv::ToInt(csv::GetColumn(columns, headerMap, "trigger_chance"), 0);
 
         if (pattern.enemyId > 0 && pattern.statusType != "none")
         {

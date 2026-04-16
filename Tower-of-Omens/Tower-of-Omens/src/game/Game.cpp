@@ -1,6 +1,7 @@
 ﻿#include "game/Game.h"
 
 #include "engine/platform/MenuInput.h"
+#include "game/CsvUtils.h"
 #include "game/screens/BattleScreen.h"
 #include "game/screens/EventScreen.h"
 #include "game/screens/FloorLoopScreen.h"
@@ -10,7 +11,6 @@
 #include "game/screens/TitleScreen.h"
 
 #include <algorithm>
-#include <fstream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -32,23 +32,7 @@ struct RelicDefinition
 
 std::string ResolveEnemyBaseCsvPath()
 {
-    const std::vector<std::string> candidates = {
-        "assets/data/enemy_base.csv",
-        "../assets/data/enemy_base.csv",
-        "../../assets/data/enemy_base.csv",
-        "Tower-of-Omens/assets/data/enemy_base.csv",
-    };
-
-    for (const std::string& path : candidates)
-    {
-        std::ifstream file(path, std::ios::binary);
-        if (file)
-        {
-            return path;
-        }
-    }
-
-    return "";
+    return csv::ResolveCsvPath("enemy_base.csv");
 }
 
 void SetConsumableCount(Player& player, const std::string& id, int count)

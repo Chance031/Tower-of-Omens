@@ -1,10 +1,7 @@
-﻿#include "game/EnemyFactory.h"
+#include "game/EnemyFactory.h"
 
-#define NOMINMAX
-#include <Windows.h>
+#include "game/CsvUtils.h"
 
-#include <algorithm>
-#include <fstream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -25,13 +22,8 @@ struct EnemyDefinition
     int floorMin = 1;
     int floorMax = 999;
     std::string description;
-    int intentBiasAttack = 0;
-    int intentBiasGuard = 0;
-    int intentBiasRecover = 0;
-    double intentThresholdHp = 0.0;
 };
 
-// 현재 층을 바탕으로 적 스탯 보정값을 계산한다.
 int FloorBonus(int floor, int step)
 {
     if (floor <= 1)
@@ -42,187 +34,20 @@ int FloorBonus(int floor, int step)
     return (floor - 1) * step;
 }
 
-std::string Trim(const std::string& value)
+std::string ResolveEnemyBaseCsvPath()
 {
-    std::size_t start = 0;
-    while (start < value.size() && (value[start] == ' ' || value[start] == '\t' || value[start] == '\r'))
-    {
-        ++start;
-    }
-
-    std::size_t end = value.size();
-    while (end > start && (value[end - 1] == ' ' || value[end - 1] == '\t' || value[end - 1] == '\r'))
-    {
-        --end;
-    }
-
-    return value.substr(start, end - start);
-}
-
-std::vector<std::string> ParseCsvLine(const std::string& line)
-{
-    std::vector<std::string> columns;
-    std::string current;
-    bool inQuotes = false;
-
-    for (std::size_t i = 0; i < line.size(); ++i)
-    {
-        const char ch = line[i];
-        if (ch == '"')
-        {
-            if (inQuotes && i + 1 < line.size() && line[i + 1] == '"')
-            {
-                current.push_back('"');
-                ++i;
-                continue;
-            }
-
-            inQuotes = !inQuotes;
-            continue;
-        }
-
-        if (ch == ',' && !inQuotes)
-        {
-            columns.push_back(current);
-            current.clear();
-            continue;
-        }
-
-        current.push_back(ch);
-    }
-
-    columns.push_back(current);
-    return columns;
-}
-
-int ToInt(const std::string& value, int fallback = 0)
-{
-    try
-    {
-        return std::stoi(Trim(value));
-    }
-    catch (...)
-    {
-        return fallback;
-    }
-}
-
-double ToDouble(const std::string& value, double fallback = 0.0)
-{
-    try
-    {
-        return std::stod(Trim(value));
-    }
-    catch (...)
-    {
-        return fallback;
-    }
-}
-
-std::string ConvertUtf8ToConsoleEncoding(const std::string& utf8Text)
-{
-    if (utf8Text.empty())
-    {
-        return "";
-    }
-
-    const int wideLength = MultiByteToWideChar(CP_UTF8, 0, utf8Text.c_str(), static_cast<int>(utf8Text.size()), nullptr, 0);
-    if (wideLength <= 0)
-    {
-        return utf8Text;
-    }
-
-    std::wstring wideText(static_cast<std::size_t>(wideLength), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8Text.c_str(), static_cast<int>(utf8Text.size()), wideText.data(), wideLength);
-
-    const int encodedLength = WideCharToMultiByte(949, 0, wideText.c_str(), wideLength, nullptr, 0, nullptr, nullptr);
-    if (encodedLength <= 0)
-    {
-        return utf8Text;
-    }
-
-    std::string converted(static_cast<std::size_t>(encodedLength), '\0');
-    WideCharToMultiByte(949, 0, wideText.c_str(), wideLength, converted.data(), encodedLength, nullptr, nullptr);
-    return converted;
-}
-
-std::string LoadTextFile(const std::string& path)
-{
-    std::ifstream file(path, std::ios::binary);
-    if (!file)
-    {
-        return "";
-    }
-
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-
-    std::string content = buffer.str();
-    if (content.size() >= 3 &&
-        static_cast<unsigned char>(content[0]) == 0xEF &&
-        static_cast<unsigned char>(content[1]) == 0xBB &&
-        static_cast<unsigned char>(content[2]) == 0xBF)
-    {
-        content.erase(0, 3);
-    }
-
-    return ConvertUtf8ToConsoleEncoding(content);
-}
-
-std::string ResolveCsvPath()
-{
-    const std::vector<std::string> candidates = {
-        "assets/data/enemy_base.csv",
-        "../assets/data/enemy_base.csv",
-        "../../assets/data/enemy_base.csv",
-        "Tower-of-Omens/assets/data/enemy_base.csv",
-    };
-
-    for (const std::string& path : candidates)
-    {
-        std::ifstream file(path, std::ios::binary);
-        if (file)
-        {
-            return path;
-        }
-    }
-
-    return "";
-}
-
-std::unordered_map<std::string, std::size_t> BuildHeaderMap(const std::vector<std::string>& headers)
-{
-    std::unordered_map<std::string, std::size_t> map;
-    for (std::size_t i = 0; i < headers.size(); ++i)
-    {
-        map[Trim(headers[i])] = i;
-    }
-    return map;
-}
-
-std::string GetColumn(
-    const std::vector<std::string>& columns,
-    const std::unordered_map<std::string, std::size_t>& headers,
-    const std::string& key)
-{
-    const auto found = headers.find(key);
-    if (found == headers.end() || found->second >= columns.size())
-    {
-        return "";
-    }
-
-    return Trim(columns[found->second]);
+    return csv::ResolveCsvPath("enemy_base.csv");
 }
 
 std::vector<EnemyDefinition> LoadEnemyDefinitions()
 {
-    const std::string path = ResolveCsvPath();
+    const std::string path = ResolveEnemyBaseCsvPath();
     if (path.empty())
     {
         return {};
     }
 
-    const std::string content = LoadTextFile(path);
+    const std::string content = csv::LoadTextFile(path);
     if (content.empty())
     {
         return {};
@@ -241,34 +66,30 @@ std::vector<EnemyDefinition> LoadEnemyDefinitions()
             line.pop_back();
         }
 
-        if (Trim(line).empty())
+        if (csv::Trim(line).empty())
         {
             continue;
         }
 
-        const std::vector<std::string> columns = ParseCsvLine(line);
+        const std::vector<std::string> columns = csv::ParseCsvLine(line);
         if (isHeader)
         {
-            headerMap = BuildHeaderMap(columns);
+            headerMap = csv::BuildHeaderMap(columns);
             isHeader = false;
             continue;
         }
 
         EnemyDefinition definition;
-        definition.id = ToInt(GetColumn(columns, headerMap, "id"), 0);
-        definition.name = GetColumn(columns, headerMap, "name");
-        definition.battleType = GetColumn(columns, headerMap, "battle_type");
-        definition.path = GetColumn(columns, headerMap, "path");
-        definition.baseHp = ToInt(GetColumn(columns, headerMap, "base_hp"), 0);
-        definition.baseAtk = ToInt(GetColumn(columns, headerMap, "base_atk"), 0);
-        definition.goldReward = ToInt(GetColumn(columns, headerMap, "gold_reward"), 0);
-        definition.floorMin = ToInt(GetColumn(columns, headerMap, "floor_min"), 1);
-        definition.floorMax = ToInt(GetColumn(columns, headerMap, "floor_max"), 999);
-        definition.description = GetColumn(columns, headerMap, "description");
-        definition.intentBiasAttack = ToInt(GetColumn(columns, headerMap, "intent_bias_attack"), 0);
-        definition.intentBiasGuard = ToInt(GetColumn(columns, headerMap, "intent_bias_guard"), 0);
-        definition.intentBiasRecover = ToInt(GetColumn(columns, headerMap, "intent_bias_recover"), 0);
-        definition.intentThresholdHp = ToDouble(GetColumn(columns, headerMap, "intent_threshold_hp"), 0.0);
+        definition.id = csv::ToInt(csv::GetColumn(columns, headerMap, "id"), 0);
+        definition.name = csv::GetColumn(columns, headerMap, "name");
+        definition.battleType = csv::GetColumn(columns, headerMap, "battle_type");
+        definition.path = csv::GetColumn(columns, headerMap, "path");
+        definition.baseHp = csv::ToInt(csv::GetColumn(columns, headerMap, "base_hp"), 0);
+        definition.baseAtk = csv::ToInt(csv::GetColumn(columns, headerMap, "base_atk"), 0);
+        definition.goldReward = csv::ToInt(csv::GetColumn(columns, headerMap, "gold_reward"), 0);
+        definition.floorMin = csv::ToInt(csv::GetColumn(columns, headerMap, "floor_min"), 1);
+        definition.floorMax = csv::ToInt(csv::GetColumn(columns, headerMap, "floor_max"), 999);
+        definition.description = csv::GetColumn(columns, headerMap, "description");
 
         if (!definition.name.empty())
         {
@@ -350,15 +171,11 @@ Enemy BuildEnemyFromDefinition(const EnemyDefinition& definition, BattleType bat
     enemy.hp = definition.baseHp;
     enemy.atk = definition.baseAtk;
     enemy.goldReward = definition.goldReward;
-    enemy.intentBiasAttack = definition.intentBiasAttack;
-    enemy.intentBiasGuard = definition.intentBiasGuard;
-    enemy.intentBiasRecover = definition.intentBiasRecover;
-    enemy.intentThresholdHp = definition.intentThresholdHp;
 
     if (battleType != BattleType::Boss)
     {
-        enemy.hp        += FloorBonus(floor, 6);
-        enemy.atk       += FloorBonus(floor, 2);
+        enemy.hp += FloorBonus(floor, 6);
+        enemy.atk += FloorBonus(floor, 2);
         enemy.goldReward += FloorBonus(floor, 3);
     }
 
@@ -399,7 +216,7 @@ Enemy EnemyFactory::Create(BattleType battleType, PathChoice path, int floor) co
 
     if (candidates.empty())
     {
-        return {0, "Training Slime", 20, 5, 5, 8, 1, 1, 0.0};
+        return {0, "Training Slime", 20, 5, 5};
     }
 
     const EnemyDefinition& selected = *candidates[RandomIndex(static_cast<int>(candidates.size()))];

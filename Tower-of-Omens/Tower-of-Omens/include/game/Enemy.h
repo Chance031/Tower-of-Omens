@@ -10,8 +10,4 @@ struct Enemy
     int         hp         = 0;
     int         atk        = 0;
     int         goldReward = 0;
-    int         intentBiasAttack = 0;
-    int         intentBiasGuard = 0;
-    int         intentBiasRecover = 0;
-    double      intentThresholdHp = 0.0;
 };
