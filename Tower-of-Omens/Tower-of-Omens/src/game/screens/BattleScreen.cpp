@@ -1,4 +1,6 @@
 ﻿#include "game/screens/BattleScreen.h"
+#include "game/battle/BattleCalculations.h"
+#include "game/battle/BattleTypes.h"
 #include "game/ConsumableData.h"
 #include "game/CsvUtils.h"
 
@@ -12,39 +14,21 @@
 
 namespace
 {
-struct SkillDefinition
-{
-    std::string name;
-    std::string description;
-    int mpCost = 0;
-    int attackBonus = 0;
-    bool grantsGuard = false;
-};
-
-struct ItemDefinition
-{
-    std::string name;
-    std::string description;
-    int count = 0;
-};
-
-struct D20Check
-{
-    int roll = 0;
-    int modifier = 0;
-    int situationalBonus = 0;
-    int total = 0;
-    int target = 0;
-    bool success = false;
-};
-
-struct EnemyStatusState
-{
-    int burnTurns = 0;
-    int wetTurns = 0;
-    int bindTurns = 0;
-    int staggerTurns = 0;
-};
+using battle::BaseAttackDifficulty;
+using battle::ComputeEnemyDamage;
+using battle::ComputePlayerDamage;
+using battle::D20Check;
+using battle::EnemyStatusState;
+using battle::FormatD20Check;
+using battle::ItemDefinition;
+using battle::MakeD20Check;
+using battle::PlayerAccuracyStat;
+using battle::RandomPercent;
+using battle::RecoveryAmountFromSpirit;
+using battle::RollDie;
+using battle::SkillDefinition;
+using battle::StatModifier;
+using battle::StatusBurnDamage;
 
 struct EnemyStatusPattern
 {
@@ -134,14 +118,6 @@ std::string MakeBar(int current, int maximum, int width, char filled, char empty
     return std::string(filledCount, filled) + std::string(width - filledCount, empty);
 }
 
-int RandomPercent()
-{
-    static std::random_device seed;
-    static std::mt19937 generator(seed());
-    static std::uniform_int_distribution<int> distribution(1, 100);
-    return distribution(generator);
-}
-
 std::string ResolveCsvPath(const std::string& fileName)
 {
     return csv::ResolveCsvPath(fileName);
@@ -221,92 +197,6 @@ const std::vector<EnemyStatusPattern>& EnemyStatusPatternRegistry()
 {
     static const std::vector<EnemyStatusPattern> patterns = LoadEnemyStatusPatterns();
     return patterns;
-}
-
-int RollDie(int minValue, int maxValue)
-{
-    static std::random_device seed;
-    static std::mt19937 generator(seed());
-    std::uniform_int_distribution<int> distribution(minValue, maxValue);
-    return distribution(generator);
-}
-
-int StatModifier(int stat)
-{
-    return static_cast<int>(std::lround((static_cast<double>(stat) - 10.0) / 2.0));
-}
-
-D20Check MakeD20Check(int stat, int target, int situationalBonus = 0)
-{
-    D20Check check;
-    check.roll = RollDie(1, 20);
-    check.modifier = StatModifier(stat);
-    check.situationalBonus = situationalBonus;
-    check.total = check.roll + check.modifier + check.situationalBonus;
-    check.target = target;
-    check.success = check.total >= check.target;
-    return check;
-}
-
-std::string FormatD20Check(const D20Check& check)
-{
-    std::ostringstream stream;
-    stream << "d20(" << check.roll << ")";
-    if (check.modifier != 0)
-    {
-        stream << (check.modifier > 0 ? " +" : " ") << check.modifier;
-    }
-    if (check.situationalBonus != 0)
-    {
-        stream << (check.situationalBonus > 0 ? " +" : " ") << check.situationalBonus;
-    }
-    stream << " = " << check.total << " vs " << check.target;
-    return stream.str();
-}
-
-int PlayerAttackStat(const Player& player)
-{
-    return (player.job == JobClass::Warrior) ? player.strength : player.intelligence;
-}
-
-int PlayerAccuracyStat(const Player& player)
-{
-    return (player.job == JobClass::Warrior) ? player.agility : player.intelligence;
-}
-
-int BaseAttackDifficulty(BattleType battleType)
-{
-    switch (battleType)
-    {
-    case BattleType::Elite:
-        return 12;
-    case BattleType::Boss:
-        return 14;
-    case BattleType::Event:
-        return 11;
-    case BattleType::Normal:
-    default:
-        return 10;
-    }
-}
-
-int ComputePlayerDamage(const Player& player, int enemyDefense, int skillBonus = 0)
-{
-    const int statPower = (player.job == JobClass::Warrior)
-        ? (player.strength + (player.agility / 2))
-        : (player.intelligence + (player.spirit / 2));
-    return std::max(1, player.atk + skillBonus + (statPower / 3) - enemyDefense);
-}
-
-int ComputeEnemyDamage(const Enemy& enemy, int defenseValue)
-{
-    return std::max(1, enemy.atk - defenseValue);
-}
-
-int RecoveryAmountFromSpirit(const Player& player, bool hpRecovery)
-{
-    const int statBase = hpRecovery ? player.spirit : player.intelligence;
-    return std::max(4, 4 + (statBase / 3));
 }
 
 void PushBattleLog(std::vector<std::string>& logs, const std::string& line);
@@ -435,11 +325,6 @@ void DecayEnemyStatuses(EnemyStatusState& status)
     status.burnTurns = std::max(0, status.burnTurns - 1);
     status.wetTurns = std::max(0, status.wetTurns - 1);
     status.bindTurns = std::max(0, status.bindTurns - 1);
-}
-
-int StatusBurnDamage(BattleType battleType)
-{
-    return (battleType == BattleType::Boss) ? 8 : 6;
 }
 
 std::string BattleTypeKey(BattleType battleType)
