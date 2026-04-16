@@ -1,10 +1,13 @@
-﻿#pragma once
+#pragma once
 
 #include "engine/platform/ConsoleRenderer.h"
 #include "engine/platform/MenuInput.h"
 #include "game/Enemy.h"
+#include "game/EnemyIntentLoader.h"
 #include "game/Enums.h"
 #include "game/Player.h"
+
+#include <unordered_map>
 
 // 전투 화면의 최소 흐름을 담당한다.
 class BattleScreen
@@ -15,6 +18,7 @@ public:
         Player& player,
         const Enemy& enemy,
         BattleType battleType,
+        const std::unordered_map<int, EnemyIntentData>& intentMap,
         const ConsoleRenderer& renderer,
         const MenuInput& input) const;
 };
