@@ -1,6 +1,8 @@
 ﻿#include "game/screens/BattleScreen.h"
 #include "game/battle/BattleCalculations.h"
+#include "game/battle/BattleStatus.h"
 #include "game/battle/BattleTypes.h"
+#include "game/battle/BattleUi.h"
 #include "game/ConsumableData.h"
 #include "game/CsvUtils.h"
 
@@ -18,6 +20,7 @@ using battle::BaseAttackDifficulty;
 using battle::ComputeEnemyDamage;
 using battle::ComputePlayerDamage;
 using battle::D20Check;
+using battle::EnemyStatusPattern;
 using battle::EnemyStatusState;
 using battle::FormatD20Check;
 using battle::ItemDefinition;
@@ -29,481 +32,22 @@ using battle::RollDie;
 using battle::SkillDefinition;
 using battle::StatModifier;
 using battle::StatusBurnDamage;
-
-struct EnemyStatusPattern
-{
-    int enemyId = 0;
-    std::vector<std::string> battleTypes;
-    std::string statusType;
-    int applyDifficulty = 0;
-    int durationTurns = 0;
-    std::string triggerCondition;
-    int triggerChance = 0;
-};
-
-std::string BattleTypeName(BattleType battleType)
-{
-    switch (battleType)
-    {
-    case BattleType::Normal:
-        return "일반 전투";
-    case BattleType::Elite:
-        return "엘리트 전투";
-    case BattleType::Event:
-        return "이벤트";
-    case BattleType::Boss:
-        return "보스 전투";
-    }
-
-    return "전투";
-}
-
-std::string PassiveName(JobClass job)
-{
-    return (job == JobClass::Warrior) ? "불굴" : "마력 순환";
-}
-
-std::string PassiveDescription(JobClass job)
-{
-    return (job == JobClass::Warrior)
-        ? "받는 피해가 항상 2 감소한다."
-        : "행동 후 MP를 3 회복한다.";
-}
-
-bool HasObservationRelic(const Player& player)
-{
-    return std::find(player.relicNames.begin(), player.relicNames.end(), "관찰 유물") != player.relicNames.end() ||
-        std::find(player.relicNames.begin(), player.relicNames.end(), "관찰의 눈") != player.relicNames.end();
-}
-
-std::string EnemyIntentName(EnemyIntent intent)
-{
-    switch (intent)
-    {
-    case EnemyIntent::Attack:
-        return "공격";
-    case EnemyIntent::Guard:
-        return "방어";
-    case EnemyIntent::Recover:
-        return "회복";
-    }
-
-    return "알 수 없음";
-}
-
-std::string EnemyIntentDescription(EnemyIntent intent)
-{
-    switch (intent)
-    {
-    case EnemyIntent::Attack:
-        return "다음 턴에 플레이어를 노리고 공격을 준비 중이다.";
-    case EnemyIntent::Guard:
-        return "다음 턴에 몸을 웅크리고 피해를 줄일 생각이다.";
-    case EnemyIntent::Recover:
-        return "다음 턴에 숨을 고르며 체력을 회복하려 한다.";
-    }
-
-    return "의도를 읽을 수 없다.";
-}
-
-std::string MakeBar(int current, int maximum, int width, char filled, char empty)
-{
-    if (maximum <= 0)
-    {
-        return std::string(width, empty);
-    }
-
-    const int clampedCurrent = std::max(0, std::min(current, maximum));
-    const int filledCount = (clampedCurrent * width) / maximum;
-    return std::string(filledCount, filled) + std::string(width - filledCount, empty);
-}
-
-std::string ResolveCsvPath(const std::string& fileName)
-{
-    return csv::ResolveCsvPath(fileName);
-}
-
-std::vector<std::string> SplitByPipe(const std::string& value)
-{
-    std::vector<std::string> parts;
-    std::stringstream stream(value);
-    std::string part;
-    while (std::getline(stream, part, '|'))
-    {
-            parts.push_back(csv::Trim(part));
-    }
-    return parts;
-}
-
-std::vector<EnemyStatusPattern> LoadEnemyStatusPatterns()
-{
-    const std::string path = ResolveCsvPath("enemy_status_patterns.csv");
-    if (path.empty())
-    {
-        return {};
-    }
-
-    const std::string content = csv::LoadTextFile(path);
-    if (content.empty())
-    {
-        return {};
-    }
-
-    std::vector<EnemyStatusPattern> patterns;
-    std::stringstream lines(content);
-    std::string line;
-    bool isHeader = true;
-    std::unordered_map<std::string, std::size_t> headerMap;
-
-    while (std::getline(lines, line))
-    {
-        if (!line.empty() && line.back() == '\r')
-        {
-            line.pop_back();
-        }
-
-        if (csv::Trim(line).empty())
-        {
-            continue;
-        }
-
-        const std::vector<std::string> columns = csv::ParseCsvLine(line);
-        if (isHeader)
-        {
-            headerMap = csv::BuildHeaderMap(columns);
-            isHeader = false;
-            continue;
-        }
-
-        EnemyStatusPattern pattern;
-        pattern.enemyId = csv::ToInt(csv::GetColumn(columns, headerMap, "enemy_id"), 0);
-        pattern.battleTypes = SplitByPipe(csv::GetColumn(columns, headerMap, "battle_type"));
-        pattern.statusType = csv::GetColumn(columns, headerMap, "status_type");
-        pattern.applyDifficulty = csv::ToInt(csv::GetColumn(columns, headerMap, "apply_difficulty"), 0);
-        pattern.durationTurns = csv::ToInt(csv::GetColumn(columns, headerMap, "duration_turns"), 0);
-        pattern.triggerCondition = csv::GetColumn(columns, headerMap, "trigger_condition");
-        pattern.triggerChance = csv::ToInt(csv::GetColumn(columns, headerMap, "trigger_chance"), 0);
-
-        if (pattern.enemyId > 0 && pattern.statusType != "none")
-        {
-            patterns.push_back(pattern);
-        }
-    }
-
-    return patterns;
-}
-
-const std::vector<EnemyStatusPattern>& EnemyStatusPatternRegistry()
-{
-    static const std::vector<EnemyStatusPattern> patterns = LoadEnemyStatusPatterns();
-    return patterns;
-}
+using battle::TryApplyEnemyPatterns;
+using battle::ApplyEnemyStatus;
+using battle::ApplyPlayerStatus;
+using battle::BuildItemList;
+using battle::BuildSkillList;
+using battle::ComposeBattleBody;
+using battle::ComposeBattleTitle;
+using battle::ComposeItemMenuBody;
+using battle::ComposePlayerStatusText;
+using battle::ComposeSkillMenuBody;
+using battle::DecayEnemyStatuses;
+using battle::DecayPlayerStatuses;
+using battle::HasAnyStatus;
+using battle::RollEnemyIntent;
 
 void PushBattleLog(std::vector<std::string>& logs, const std::string& line);
-
-bool HasAnyStatus(const Player& player)
-{
-    return player.burnTurns > 0 || player.wetTurns > 0 || player.bindTurns > 0 || player.staggerTurns > 0;
-}
-
-bool HasAnyStatus(const EnemyStatusState& status)
-{
-    return status.burnTurns > 0 || status.wetTurns > 0 || status.bindTurns > 0 || status.staggerTurns > 0;
-}
-
-std::string ComposePlayerStatusText(const Player& player)
-{
-    if (!HasAnyStatus(player))
-    {
-        return "없음";
-    }
-
-    std::ostringstream body;
-    bool first = true;
-    if (player.burnTurns > 0)
-    {
-        body << (first ? "" : ", ") << "화상 " << player.burnTurns << "턴";
-        first = false;
-    }
-    if (player.wetTurns > 0)
-    {
-        body << (first ? "" : ", ") << "습기 " << player.wetTurns << "턴";
-        first = false;
-    }
-    if (player.bindTurns > 0)
-    {
-        body << (first ? "" : ", ") << "속박 " << player.bindTurns << "턴";
-        first = false;
-    }
-    if (player.staggerTurns > 0)
-    {
-        body << (first ? "" : ", ") << "경직 " << player.staggerTurns << "턴";
-    }
-    return body.str();
-}
-
-std::string ComposeEnemyStatusText(const EnemyStatusState& status)
-{
-    if (!HasAnyStatus(status))
-    {
-        return "없음";
-    }
-
-    std::ostringstream body;
-    bool first = true;
-    if (status.burnTurns > 0)
-    {
-        body << (first ? "" : ", ") << "화상 " << status.burnTurns << "턴";
-        first = false;
-    }
-    if (status.wetTurns > 0)
-    {
-        body << (first ? "" : ", ") << "습기 " << status.wetTurns << "턴";
-        first = false;
-    }
-    if (status.bindTurns > 0)
-    {
-        body << (first ? "" : ", ") << "속박 " << status.bindTurns << "턴";
-        first = false;
-    }
-    if (status.staggerTurns > 0)
-    {
-        body << (first ? "" : ", ") << "경직 " << status.staggerTurns << "턴";
-    }
-    return body.str();
-}
-
-void ApplyPlayerStatus(Player& player, const std::string& statusName, int turns)
-{
-    if (statusName == "화상")
-    {
-        player.burnTurns = std::max(player.burnTurns, turns);
-    }
-    else if (statusName == "습기")
-    {
-        player.wetTurns = std::max(player.wetTurns, turns);
-    }
-    else if (statusName == "속박")
-    {
-        player.bindTurns = std::max(player.bindTurns, turns);
-    }
-    else if (statusName == "경직")
-    {
-        player.staggerTurns = std::max(player.staggerTurns, turns);
-    }
-}
-
-void ApplyEnemyStatus(EnemyStatusState& status, const std::string& statusName, int turns)
-{
-    if (statusName == "화상")
-    {
-        status.burnTurns = std::max(status.burnTurns, turns);
-    }
-    else if (statusName == "습기")
-    {
-        status.wetTurns = std::max(status.wetTurns, turns);
-    }
-    else if (statusName == "속박")
-    {
-        status.bindTurns = std::max(status.bindTurns, turns);
-    }
-    else if (statusName == "경직")
-    {
-        status.staggerTurns = std::max(status.staggerTurns, turns);
-    }
-}
-
-void DecayPlayerStatuses(Player& player)
-{
-    player.burnTurns = std::max(0, player.burnTurns - 1);
-    player.wetTurns = std::max(0, player.wetTurns - 1);
-    player.bindTurns = std::max(0, player.bindTurns - 1);
-}
-
-void DecayEnemyStatuses(EnemyStatusState& status)
-{
-    status.burnTurns = std::max(0, status.burnTurns - 1);
-    status.wetTurns = std::max(0, status.wetTurns - 1);
-    status.bindTurns = std::max(0, status.bindTurns - 1);
-}
-
-std::string BattleTypeKey(BattleType battleType)
-{
-    switch (battleType)
-    {
-    case BattleType::Normal:
-        return "Normal";
-    case BattleType::Elite:
-        return "Elite";
-    case BattleType::Event:
-        return "Event";
-    case BattleType::Boss:
-        return "Boss";
-    }
-
-    return "Normal";
-}
-
-bool PatternMatchesBattleType(const EnemyStatusPattern& pattern, BattleType battleType)
-{
-    const std::string key = BattleTypeKey(battleType);
-    return std::find(pattern.battleTypes.begin(), pattern.battleTypes.end(), key) != pattern.battleTypes.end();
-}
-
-bool EvaluateTriggerCondition(
-    const EnemyStatusPattern& pattern,
-    const Enemy& enemy,
-    int enemyHp,
-    int turnCount)
-{
-    if (pattern.triggerCondition == "always")
-    {
-        return true;
-    }
-
-    if (pattern.triggerCondition == "hp_below_50")
-    {
-        return enemy.hp > 0 && (enemyHp * 100) / enemy.hp <= 50;
-    }
-
-    if (pattern.triggerCondition == "hp_below_70")
-    {
-        return enemy.hp > 0 && (enemyHp * 100) / enemy.hp <= 70;
-    }
-
-    if (pattern.triggerCondition == "every_2turns")
-    {
-        return turnCount > 0 && (turnCount % 2 == 0);
-    }
-
-    if (pattern.triggerCondition == "every_3turns")
-    {
-        return turnCount > 0 && (turnCount % 3 == 0);
-    }
-
-    if (pattern.triggerCondition == "phase2")
-    {
-        return enemy.hp > 0 && (enemyHp * 100) / enemy.hp <= 50;
-    }
-
-    return false;
-}
-
-void TryApplyEnemyPatterns(
-    Player& player,
-    const Enemy& enemy,
-    BattleType battleType,
-    int enemyHp,
-    int turnCount,
-    std::vector<std::string>& battleLogs)
-{
-    for (const EnemyStatusPattern& pattern : EnemyStatusPatternRegistry())
-    {
-        if (pattern.enemyId != enemy.id || !PatternMatchesBattleType(pattern, battleType))
-        {
-            continue;
-        }
-
-        if (!EvaluateTriggerCondition(pattern, enemy, enemyHp, turnCount))
-        {
-            continue;
-        }
-
-        if (pattern.triggerChance > 0 && RandomPercent() > pattern.triggerChance)
-        {
-            continue;
-        }
-
-        const D20Check resistCheck = MakeD20Check(player.spirit, pattern.applyDifficulty);
-        if (resistCheck.success)
-        {
-            PushBattleLog(battleLogs, enemy.name + "의 " + pattern.statusType + " 저항 성공: " + FormatD20Check(resistCheck));
-            continue;
-        }
-
-        ApplyPlayerStatus(player, pattern.statusType, pattern.durationTurns);
-        PushBattleLog(
-            battleLogs,
-            enemy.name + "이(가) " + pattern.statusType + " 부여 성공: " + FormatD20Check(resistCheck) +
-            " (" + std::to_string(pattern.durationTurns) + "턴)");
-    }
-}
-
-EnemyIntent RollEnemyIntent(
-    const Enemy& enemy,
-    const std::unordered_map<int, EnemyIntentData>& intentMap,
-    int enemyHp,
-    BattleType battleType)
-{
-    EnemyIntentData intentData = FindIntentData(intentMap, enemy.id);
-
-    if (battleType == BattleType::Boss)
-    {
-        intentData.biasGuard += 1;
-        intentData.biasRecover += 1;
-    }
-    else if (battleType == BattleType::Elite)
-    {
-        intentData.biasAttack += 1;
-    }
-
-    return DecideEnemyIntent(intentData, enemyHp, enemy.hp, RollDie(1, 20));
-}
-
-std::vector<SkillDefinition> BuildSkillList(JobClass job, int level)
-{
-    std::vector<SkillDefinition> skills;
-
-    if (job == JobClass::Warrior)
-    {
-        skills.push_back({"강철 태세", "MP 8 소모. 피해를 주고 이번 턴 방어를 강화한다.", 8, 5, true});
-        if (level >= 5)
-        {
-            skills.push_back({"파쇄 돌격", "MP 14 소모. 더 큰 피해를 주고 자세를 다잡는다.", 14, 12, true});
-        }
-    }
-    else
-    {
-        skills.push_back({"마력 폭발", "MP 14 소모. 강한 마법 피해를 준다.", 14, 16, false});
-        if (level >= 5)
-        {
-            skills.push_back({"운석 낙하", "MP 20 소모. 압도적인 마법 피해를 준다.", 20, 24, false});
-        }
-    }
-
-    return skills;
-}
-
-std::vector<ItemDefinition> BuildItemList(const Player& player)
-{
-    std::vector<ItemDefinition> items;
-    for (const ConsumableInfo& consumable : BuildOwnedConsumables(player))
-    {
-        items.push_back({consumable.name, consumable.description, GetConsumableCount(player, consumable.id)});
-    }
-    return items;
-}
-
-std::string ActionDescription(JobClass job, int level, int actionIndex)
-{
-    switch (actionIndex)
-    {
-    case 0:
-        return "d20 판정으로 명중을 확인한 뒤 적을 공격한다.";
-    case 1:
-        return (job == JobClass::Warrior)
-            ? ((level >= 5) ? "사용 가능한 전투 기술을 선택한다. 강철 태세와 파쇄 돌격을 사용할 수 있다." : "사용 가능한 전투 기술을 선택한다. 현재는 강철 태세를 사용할 수 있다.")
-            : ((level >= 5) ? "사용 가능한 마법 기술을 선택한다. 마력 폭발과 운석 낙하를 사용할 수 있다." : "사용 가능한 마법 기술을 선택한다. 현재는 마력 폭발을 사용할 수 있다.");
-    case 2:
-        return "보유 중인 소모품 목록을 열어 하나를 선택한다. 없는 아이템은 표시되지 않는다.";
-    case 3:
-        return "방어 자세를 취해 받는 피해를 줄이고 적의 명중을 흔든다.";
-    case 4:
-        return "d20 + 민첩 보정으로 전투에서 이탈을 시도한다.";
-    }
-
-    return "행동을 선택한다.";
-}
 
 void PushBattleLog(std::vector<std::string>& logs, const std::string& line)
 {
@@ -514,142 +58,6 @@ void PushBattleLog(std::vector<std::string>& logs, const std::string& line)
     {
         logs.erase(logs.begin());
     }
-}
-
-std::string ComposeLogText(const std::vector<std::string>& logs)
-{
-    std::ostringstream stream;
-    for (const std::string& line : logs)
-    {
-        stream << "- " << line << '\n';
-    }
-
-    return stream.str();
-}
-
-std::string ComposeStatusHeadline(const Player& player)
-{
-    std::ostringstream body;
-    body << "[현재 상태] HP " << player.hp << '/' << player.maxHp;
-    body << " | MP " << player.mp << '/' << player.maxMp;
-    body << " | 회복약 " << GetConsumableCount(player, "201");
-    body << " | 마나약 " << GetConsumableCount(player, "203");
-    if (player.nextAttackMultiplier > 1)
-    {
-        body << " | 다음 공격 x" << player.nextAttackMultiplier;
-    }
-    body << '\n';
-    return body.str();
-}
-
-std::string ComposeBattleTitle(const Player& player, const std::string& baseTitle)
-{
-    std::ostringstream title;
-    title << baseTitle << " | HP " << player.hp << '/' << player.maxHp;
-    title << " | MP " << player.mp << '/' << player.maxMp;
-    return title.str();
-}
-
-std::string ComposePlayerPanel(const Player& player)
-{
-    std::ostringstream body;
-    body << "[플레이어 패널]\n";
-    body << player.name << " | 층 " << player.floor << " | Lv " << player.level << '\n';
-    body << "HP [" << MakeBar(player.hp, player.maxHp, 20, '#', '.') << "] " << player.hp << '/' << player.maxHp << '\n';
-    body << "MP [" << MakeBar(player.mp, player.maxMp, 20, '@', '.') << "] " << player.mp << '/' << player.maxMp << '\n';
-    body << "STR " << player.strength << " | AGI " << player.agility;
-    body << " | INT " << player.intelligence << " | MND " << player.spirit << '\n';
-    body << "방어력 " << player.def << " | GOLD " << player.gold << '\n';
-    body << "근접 보정 " << StatModifier(player.strength) << " | 명중/도주 보정 " << StatModifier(player.agility)
-        << " | 마법 보정 " << StatModifier(player.intelligence) << " | 회복 보정 " << StatModifier(player.spirit) << '\n';
-    body << "상태이상 " << ComposePlayerStatusText(player) << '\n';
-    body << "회복약 " << GetConsumableCount(player, "201") << " | 마나약 " << GetConsumableCount(player, "203") << '\n';
-    body << "패시브 " << PassiveName(player.job) << " - " << PassiveDescription(player.job) << '\n';
-    return body.str();
-}
-
-std::string ComposeEnemyPanel(
-    const Player& player,
-    const Enemy& enemy,
-    int enemyHp,
-    BattleType battleType,
-    EnemyIntent nextIntent,
-    const EnemyStatusState& enemyStatus)
-{
-    std::ostringstream body;
-    body << "[적 패널]\n";
-    body << enemy.name << " | " << BattleTypeName(battleType) << '\n';
-    body << "HP [" << MakeBar(enemyHp, enemy.hp, 20, '#', '.') << "] " << enemyHp << '/' << enemy.hp << '\n';
-    body << "ATK " << enemy.atk << " | 보상 " << enemy.goldReward << " Gold\n";
-    body << "기본 회피 난도 " << BaseAttackDifficulty(battleType) << '\n';
-    body << "상태이상 " << ComposeEnemyStatusText(enemyStatus) << '\n';
-    if (HasObservationRelic(player))
-    {
-        body << "다음 행동: " << EnemyIntentName(nextIntent) << "\n";
-        body << EnemyIntentDescription(nextIntent) << '\n';
-    }
-    else if (battleType == BattleType::Boss)
-    {
-        body << "심연이 꿈틀거린다. 물러설 곳은 없다.\n";
-    }
-    else if (battleType == BattleType::Elite)
-    {
-        body << "보통 적보다 날카로운 기세가 느껴진다.\n";
-    }
-    else
-    {
-        body << "숨을 고르고 적의 움직임을 살핀다.\n";
-    }
-
-    return body.str();
-}
-
-std::string ComposeBattleBody(
-    const Player& player,
-    const Enemy& enemy,
-    int enemyHp,
-    BattleType battleType,
-    EnemyIntent nextIntent,
-    const EnemyStatusState& enemyStatus,
-    int selected,
-    const std::vector<std::string>& battleLogs)
-{
-    std::ostringstream body;
-    body << ComposeStatusHeadline(player);
-    body << ComposePlayerPanel(player) << '\n';
-    body << "------------------------------------------------------------\n";
-    body << ComposeEnemyPanel(player, enemy, enemyHp, battleType, nextIntent, enemyStatus) << '\n';
-    body << "------------------------------------------------------------\n";
-    body << "[현재 행동]\n";
-    body << ActionDescription(player.job, player.level, selected) << "\n\n";
-    body << "[전투 로그]\n";
-    body << ComposeLogText(battleLogs);
-    return body.str();
-}
-
-std::string ComposeSkillMenuBody(const Player& player, const SkillDefinition& skill)
-{
-    std::ostringstream body;
-    body << ComposeStatusHeadline(player);
-    body << "[선택한 스킬]\n";
-    body << skill.name << '\n';
-    body << skill.description << '\n';
-    body << "필요 MP: " << skill.mpCost << "\n\n";
-    body << ComposePlayerPanel(player);
-    body << "ESC를 누르면 전투 메뉴로 돌아간다.\n";
-    return body.str();
-}
-
-std::string ComposeItemMenuBody(const Player& player, const ItemDefinition& item)
-{
-    std::ostringstream body;
-    body << ComposeStatusHeadline(player);
-    body << "[선택한 아이템]\n";
-    body << item.name << " | 보유 수량: " << item.count << '\n';
-    body << item.description << "\n\n";
-    body << ComposePlayerPanel(player);
-    body << "ESC를 누르면 전투 메뉴로 돌아간다.\n";
-    return body.str();
 }
 }
 
@@ -730,7 +138,16 @@ BattleResult BattleScreen::Run(
                 }
             }
 
-            TryApplyEnemyPatterns(player, enemy, battleType, enemyHp, turnCount, battleLogs);
+            TryApplyEnemyPatterns(
+                player,
+                enemy,
+                battleType,
+                enemyHp,
+                turnCount,
+                [&battleLogs](const std::string& line)
+                {
+                    PushBattleLog(battleLogs, line);
+                });
 
             if (player.burnTurns > 0)
             {
@@ -1121,7 +538,16 @@ BattleResult BattleScreen::Run(
             }
         }
 
-        TryApplyEnemyPatterns(player, enemy, battleType, enemyHp, turnCount, battleLogs);
+        TryApplyEnemyPatterns(
+            player,
+            enemy,
+            battleType,
+            enemyHp,
+            turnCount,
+            [&battleLogs](const std::string& line)
+            {
+                PushBattleLog(battleLogs, line);
+            });
 
         if (player.burnTurns > 0)
         {
