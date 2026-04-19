@@ -168,11 +168,23 @@ BattleResult BattleScreen::Run(
             if (player.hp <= 0)
             {
                 PushBattleLog(battleLogs, "플레이어가 쓰러졌다.");
+                renderer.Present(renderer.ComposeMenuFrame(
+                    ComposeBattleTitle(player, "전투 패배"),
+                    ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, enemyStatus, selected, battleLogs),
+                    options,
+                    selected));
+                input.WaitForAnyKey();
                 return BattleResult::Defeat;
             }
             if (enemyHp <= 0)
             {
                 PushBattleLog(battleLogs, enemy.name + "을(를) 쓰러뜨렸다.");
+                renderer.Present(renderer.ComposeMenuFrame(
+                    ComposeBattleTitle(player, "전투 승리"),
+                    ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, enemyStatus, selected, battleLogs),
+                    options,
+                    selected));
+                input.WaitForAnyKey();
                 return BattleResult::Victory;
             }
 
@@ -383,6 +395,7 @@ BattleResult BattleScreen::Run(
 
         case 2:
         {
+            const std::vector<ConsumableInfo> ownedConsumables = BuildOwnedConsumables(player);
             const std::vector<ItemDefinition> items = BuildItemList(player);
             if (items.empty())
             {
@@ -418,7 +431,6 @@ BattleResult BattleScreen::Run(
                     break;
                 }
 
-                const std::vector<ConsumableInfo> ownedConsumables = BuildOwnedConsumables(player);
                 const ConsumableInfo& chosenConsumable = ownedConsumables[itemAction.index];
                 performedAction = true;
 
@@ -490,6 +502,7 @@ BattleResult BattleScreen::Run(
                 ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, enemyStatus, selected, battleLogs),
                 options,
                 selected));
+            input.WaitForAnyKey();
             return BattleResult::Victory;
         }
 
@@ -578,12 +591,24 @@ BattleResult BattleScreen::Run(
         if (player.hp <= 0)
         {
             PushBattleLog(battleLogs, "플레이어가 쓰러졌다.");
+            renderer.Present(renderer.ComposeMenuFrame(
+                ComposeBattleTitle(player, "전투 패배"),
+                ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, enemyStatus, selected, battleLogs),
+                options,
+                selected));
+            input.WaitForAnyKey();
             return BattleResult::Defeat;
         }
 
         if (enemyHp <= 0)
         {
             PushBattleLog(battleLogs, enemy.name + "을(를) 쓰러뜨렸다.");
+            renderer.Present(renderer.ComposeMenuFrame(
+                ComposeBattleTitle(player, "전투 승리"),
+                ComposeBattleBody(player, enemy, enemyHp, battleType, pendingEnemyIntent, enemyStatus, selected, battleLogs),
+                options,
+                selected));
+            input.WaitForAnyKey();
             return BattleResult::Victory;
         }
 

@@ -520,9 +520,9 @@ MaintenanceResult MaintenanceScreen::Run(Player& player, const ConsoleRenderer& 
                     shopSelected = 0;
                 }
 
-                const ShopItem* currentItem = shopItems.empty()
+                const ShopItem* currentItem = (shopItems.empty() || shopSelected >= static_cast<int>(shopItems.size()))
                     ? nullptr
-                    : &shopItems[std::min(shopSelected, static_cast<int>(shopItems.size()) - 1)];
+                    : &shopItems[shopSelected];
 
                 renderer.Present(renderer.ComposeMenuFrame("상점", ComposeShopBody(player, currentItem), shopOptions, shopSelected));
                 const MenuAction shopAction = input.ReadMenuSelection(shopSelected, static_cast<int>(shopOptions.size()));

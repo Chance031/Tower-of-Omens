@@ -11,6 +11,7 @@
 
 namespace csv
 {
+// 문자열 앞뒤의 공백, 탭, 캐리지 리턴을 제거한다.
 inline std::string Trim(const std::string& value)
 {
     std::size_t start = 0;
@@ -28,6 +29,7 @@ inline std::string Trim(const std::string& value)
     return value.substr(start, end - start);
 }
 
+// CSV 한 줄을 쉼표 구분자로 파싱해 컬럼 배열로 반환한다. 따옴표 처리를 지원한다.
 inline std::vector<std::string> ParseCsvLine(const std::string& line)
 {
     std::vector<std::string> columns;
@@ -64,6 +66,7 @@ inline std::vector<std::string> ParseCsvLine(const std::string& line)
     return columns;
 }
 
+// 문자열을 int로 변환한다. 변환 실패 시 fallback을 반환한다.
 inline int ToInt(const std::string& value, int fallback = 0)
 {
     try
@@ -100,6 +103,7 @@ inline double ToDouble(const std::string& value, double fallback = 0.0)
     }
 }
 
+// UTF-8 문자열을 Windows 콘솔 인코딩(CP949)으로 변환한다.
 inline std::string ConvertUtf8ToConsoleEncoding(const std::string& utf8Text)
 {
     if (utf8Text.empty())
@@ -127,6 +131,7 @@ inline std::string ConvertUtf8ToConsoleEncoding(const std::string& utf8Text)
     return converted;
 }
 
+// 파일을 읽어 문자열로 반환한다. UTF-8 BOM 제거 및 콘솔 인코딩 변환을 수행한다.
 inline std::string LoadTextFile(const std::string& path)
 {
     std::ifstream file(path, std::ios::binary);
@@ -150,6 +155,7 @@ inline std::string LoadTextFile(const std::string& path)
     return ConvertUtf8ToConsoleEncoding(content);
 }
 
+// 실행 위치에 따라 CSV 파일의 실제 경로를 찾아 반환한다. 찾지 못하면 빈 문자열.
 inline std::string ResolveCsvPath(const std::string& fileName)
 {
     const std::vector<std::string> candidates = {
@@ -171,6 +177,7 @@ inline std::string ResolveCsvPath(const std::string& fileName)
     return "";
 }
 
+// 헤더 컬럼 배열을 {이름 → 인덱스} 맵으로 변환한다.
 inline std::unordered_map<std::string, std::size_t> BuildHeaderMap(const std::vector<std::string>& headers)
 {
     std::unordered_map<std::string, std::size_t> map;
@@ -181,6 +188,7 @@ inline std::unordered_map<std::string, std::size_t> BuildHeaderMap(const std::ve
     return map;
 }
 
+// 헤더 맵에서 key에 해당하는 컬럼 값을 찾아 반환한다. 없으면 빈 문자열.
 inline std::string GetColumn(
     const std::vector<std::string>& columns,
     const std::unordered_map<std::string, std::size_t>& headers,

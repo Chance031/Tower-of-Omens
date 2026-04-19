@@ -32,13 +32,9 @@ std::string ResolveConsumableCsvPath()
     return csv::ResolveCsvPath("items_consumable.csv");
 }
 
-void SyncLegacyCounts(Player& player)
-{
-    player.potionCount = GetConsumableCount(player, "201");
-    player.etherCount = GetConsumableCount(player, "203");
-}
 }
 
+// items_consumable.csv를 최초 1회 파싱해 전체 소모품 목록을 반환한다. (lazy-static)
 const std::vector<ConsumableInfo>& LoadConsumableCatalog()
 {
     static const std::vector<ConsumableInfo> catalog = []() {
@@ -98,6 +94,7 @@ const std::vector<ConsumableInfo>& LoadConsumableCatalog()
     return catalog;
 }
 
+// 플레이어 인벤토리에서 해당 id의 소모품 개수를 반환한다. 없으면 0.
 int GetConsumableCount(const Player& player, const std::string& id)
 {
     for (const ConsumableStack& stack : player.consumables)
@@ -111,22 +108,26 @@ int GetConsumableCount(const Player& player, const std::string& id)
     return 0;
 }
 
+// 소모품 수량을 amount만큼 증감한다. 0 미만으로는 내려가지 않는다.
+// amount가 양수인데 스택이 없으면 새로 추가한다.
 void AddConsumable(Player& player, const std::string& id, int amount)
 {
     for (ConsumableStack& stack : player.consumables)
     {
         if (stack.id == id)
         {
-            stack.count += amount;
-            SyncLegacyCounts(player);
+            stack.count = std::max(0, stack.count + amount);
             return;
         }
     }
 
-    player.consumables.push_back({id, amount});
-    SyncLegacyCounts(player);
+    if (amount > 0)
+    {
+        player.consumables.push_back({id, amount});
+    }
 }
 
+// 소모품을 amount개 소모한다. 보유량이 충분하면 차감 후 true, 아니면 false.
 bool ConsumeConsumable(Player& player, const std::string& id, int amount)
 {
     for (ConsumableStack& stack : player.consumables)
@@ -134,7 +135,6 @@ bool ConsumeConsumable(Player& player, const std::string& id, int amount)
         if (stack.id == id && stack.count >= amount)
         {
             stack.count -= amount;
-            SyncLegacyCounts(player);
             return true;
         }
     }
@@ -142,6 +142,7 @@ bool ConsumeConsumable(Player& player, const std::string& id, int amount)
     return false;
 }
 
+// 카탈로그 순서대로 플레이어가 보유 중인 소모품 목록만 추려 반환한다.
 std::vector<ConsumableInfo> BuildOwnedConsumables(const Player& player)
 {
     std::vector<ConsumableInfo> owned;
@@ -158,6 +159,9 @@ std::vector<ConsumableInfo> BuildOwnedConsumables(const Player& player)
     return owned;
 }
 
+// 아이템의 effect 키에 따라 효과를 플레이어에게 적용한다.
+// inBattle이 false면 전투 전용 아이템 사용을 막는다.
+// 성공 여부와 결과 요약 문자열을 반환한다.
 bool ApplyConsumableEffect(Player& player, const ConsumableInfo& item, bool inBattle, std::string& summary)
 {
     if (item.effect == "hp")

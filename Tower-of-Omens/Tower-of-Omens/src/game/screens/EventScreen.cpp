@@ -228,13 +228,11 @@ std::string ApplyEffects(Player& player, const std::string& effectText)
         }
         else if (key == "potion")
         {
-            player.potionCount = std::max(0, player.potionCount + amount);
             AddConsumable(player, "201", amount);
             summary << "- 회복약 " << ((amount >= 0) ? "+" : "") << amount << '\n';
         }
         else if (key == "ether")
         {
-            player.etherCount = std::max(0, player.etherCount + amount);
             AddConsumable(player, "203", amount);
             summary << "- 에테르 " << ((amount >= 0) ? "+" : "") << amount << '\n';
         }

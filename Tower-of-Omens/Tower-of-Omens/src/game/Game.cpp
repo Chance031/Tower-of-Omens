@@ -1,6 +1,7 @@
 ﻿#include "game/Game.h"
 
 #include "engine/platform/MenuInput.h"
+#include "game/ConsumableData.h"
 #include "game/CsvUtils.h"
 #include "game/screens/BattleScreen.h"
 #include "game/screens/EventScreen.h"
@@ -35,6 +36,7 @@ std::string ResolveEnemyBaseCsvPath()
     return csv::ResolveCsvPath("enemy_base.csv");
 }
 
+// 소모품 수량을 count로 직접 지정한다. 스택이 없으면 새로 추가한다.
 void SetConsumableCount(Player& player, const std::string& id, int count)
 {
     for (ConsumableStack& stack : player.consumables)
@@ -49,21 +51,8 @@ void SetConsumableCount(Player& player, const std::string& id, int count)
     player.consumables.push_back({id, count});
 }
 
-void AddConsumableCount(Player& player, const std::string& id, int amount)
-{
-    for (ConsumableStack& stack : player.consumables)
-    {
-        if (stack.id == id)
-        {
-            stack.count += amount;
-            return;
-        }
-    }
 
-    player.consumables.push_back({id, amount});
-}
-
-
+// 경로 유형을 한국어 이름으로 변환한다.
 std::string PathName(PathChoice path)
 {
     switch (path)
@@ -80,6 +69,7 @@ std::string PathName(PathChoice path)
     return "알 수 없는 길";
 }
 
+// 경로와 전투 유형에 따라 층 진입 메시지를 생성한다.
 std::string PathTransitionMessage(PathChoice path, BattleType battleType)
 {
     switch (battleType)
@@ -96,6 +86,7 @@ std::string PathTransitionMessage(PathChoice path, BattleType battleType)
     }
 }
 
+// minValue~maxValue 범위의 난수를 반환한다.
 int RandomIndex(int minValue, int maxValue)
 {
     static std::random_device seed;
@@ -104,6 +95,7 @@ int RandomIndex(int minValue, int maxValue)
     return distribution(generator);
 }
 
+// 전투 후 선택 가능한 보상 목록을 반환한다.
 std::vector<RewardItem> BuildRewardPool()
 {
     return {
@@ -116,6 +108,7 @@ std::vector<RewardItem> BuildRewardPool()
     };
 }
 
+// 엘리트 전투 클리어 시 획득 가능한 유물 목록을 반환한다.
 std::vector<RelicDefinition> BuildRelicPool()
 {
     return {
@@ -126,6 +119,7 @@ std::vector<RelicDefinition> BuildRelicPool()
     };
 }
 
+// 보상 선택 화면에 표시할 본문을 구성한다.
 std::string ComposeRewardBody(
     const Player& player,
     const Enemy& enemy,
@@ -151,6 +145,7 @@ std::string ComposeRewardBody(
     return body.str();
 }
 
+// 게임 오버 화면에 표시할 탐험 결과 본문을 구성한다.
 std::string ComposeGameOverBody(const Player& player)
 {
     std::ostringstream body;
@@ -162,19 +157,18 @@ std::string ComposeGameOverBody(const Player& player)
     return body.str();
 }
 
+// 선택된 보상 아이템을 플레이어에게 적용하고 결과 텍스트를 반환한다.
 std::string ApplyRewardItem(Player& player, const RewardItem& reward)
 {
     if (reward.name == "회복약 꾸러미")
     {
-        player.potionCount += 2;
-        AddConsumableCount(player, "201", 2);
+        AddConsumable(player, "201", 2);
         return "회복약 2개를 획득했다.";
     }
 
     if (reward.name == "마나약 꾸러미")
     {
-        player.etherCount += 2;
-        AddConsumableCount(player, "203", 2);
+        AddConsumable(player, "203", 2);
         return "마나약 2개를 획득했다.";
     }
 
@@ -393,8 +387,6 @@ void Game::StartRun(JobClass job)
         m_player.agility = 11;
         m_player.intelligence = 8;
         m_player.spirit = 9;
-        m_player.potionCount = 2;
-        m_player.etherCount = 1;
         m_player.weaponName = "훈련용 검";
         m_player.weaponAtkBonus = 3;
         m_player.armorName = "견습 방어구";
@@ -406,8 +398,6 @@ void Game::StartRun(JobClass job)
         m_player.agility = 10;
         m_player.intelligence = 14;
         m_player.spirit = 12;
-        m_player.potionCount = 1;
-        m_player.etherCount = 2;
         m_player.weaponName = "초심자 지팡이";
         m_player.weaponAtkBonus = 5;
         m_player.armorName = "견습 로브";
@@ -416,8 +406,16 @@ void Game::StartRun(JobClass job)
 
     RefreshDerivedStats(m_player, true);
     m_player.consumables.clear();
-    SetConsumableCount(m_player, "201", m_player.potionCount);
-    SetConsumableCount(m_player, "203", m_player.etherCount);
+    if (job == JobClass::Warrior)
+    {
+        SetConsumableCount(m_player, "201", 2);
+        SetConsumableCount(m_player, "203", 1);
+    }
+    else
+    {
+        SetConsumableCount(m_player, "201", 1);
+        SetConsumableCount(m_player, "203", 2);
+    }
 }
 
 std::string Game::JobName(JobClass job) const

@@ -10,20 +10,22 @@
 
 namespace
 {
+// CSV에서 읽어들인 적 한 종류의 원본 데이터를 담는다.
 struct EnemyDefinition
 {
     int id = 0;
     std::string name;
-    std::string battleType;
-    std::string path;
+    std::string battleType; // "Normal" / "Elite" / "Event" / "Boss"
+    std::string path;       // "Any" / "Normal" / "Dangerous" / "Unknown"
     int baseHp = 0;
     int baseAtk = 0;
     int goldReward = 0;
-    int floorMin = 1;
-    int floorMax = 999;
+    int floorMin = 1;  // 등장 최소 층
+    int floorMax = 999;// 등장 최대 층
     std::string description;
 };
 
+// 층 스케일링 보너스를 계산한다. 1층은 0, 이후 층마다 step씩 증가.
 int FloorBonus(int floor, int step)
 {
     if (floor <= 1)
@@ -34,11 +36,13 @@ int FloorBonus(int floor, int step)
     return (floor - 1) * step;
 }
 
+// enemy_base.csv 파일 경로를 반환한다.
 std::string ResolveEnemyBaseCsvPath()
 {
     return csv::ResolveCsvPath("enemy_base.csv");
 }
 
+// CSV 파일에서 전체 적 정의 목록을 파싱해 반환한다.
 std::vector<EnemyDefinition> LoadEnemyDefinitions()
 {
     const std::string path = ResolveEnemyBaseCsvPath();
@@ -100,12 +104,14 @@ std::vector<EnemyDefinition> LoadEnemyDefinitions()
     return definitions;
 }
 
+// 적 정의 목록을 최초 1회 로드해 반환한다. (lazy-static)
 const std::vector<EnemyDefinition>& EnemyRegistry()
 {
     static const std::vector<EnemyDefinition> definitions = LoadEnemyDefinitions();
     return definitions;
 }
 
+// BattleType 열거값을 CSV의 battle_type 문자열로 변환한다.
 std::string BattleTypeKey(BattleType battleType)
 {
     switch (battleType)
@@ -123,14 +129,13 @@ std::string BattleTypeKey(BattleType battleType)
     return "Normal";
 }
 
+// PathChoice 열거값을 CSV의 path 문자열로 변환한다.
 std::string PathChoiceKey(PathChoice path)
 {
     switch (path)
     {
     case PathChoice::Normal:
         return "Normal";
-    case PathChoice::Safe:
-        return "Safe";
     case PathChoice::Dangerous:
         return "Dangerous";
     case PathChoice::Unknown:
@@ -140,21 +145,25 @@ std::string PathChoiceKey(PathChoice path)
     return "Any";
 }
 
+// 적 정의의 전투 유형이 요청과 일치하는지 확인한다.
 bool MatchesBattleType(const EnemyDefinition& definition, BattleType battleType)
 {
     return definition.battleType == BattleTypeKey(battleType);
 }
 
+// 적 정의의 경로가 요청과 일치하는지 확인한다. "Any"는 항상 통과.
 bool MatchesPath(const EnemyDefinition& definition, PathChoice path)
 {
     return definition.path == "Any" || definition.path == PathChoiceKey(path);
 }
 
+// 적 정의의 등장 층 범위에 현재 층이 포함되는지 확인한다.
 bool MatchesFloor(const EnemyDefinition& definition, int floor)
 {
     return floor >= definition.floorMin && floor <= definition.floorMax;
 }
 
+// 0 이상 maxExclusive 미만의 난수 인덱스를 반환한다.
 int RandomIndex(int maxExclusive)
 {
     static std::random_device seed;
@@ -163,6 +172,8 @@ int RandomIndex(int maxExclusive)
     return distribution(generator);
 }
 
+// 적 정의와 현재 층을 바탕으로 스케일링이 적용된 Enemy 인스턴스를 생성한다.
+// 보스는 층 스케일링을 적용하지 않는다.
 Enemy BuildEnemyFromDefinition(const EnemyDefinition& definition, BattleType battleType, int floor)
 {
     Enemy enemy;
@@ -183,6 +194,8 @@ Enemy BuildEnemyFromDefinition(const EnemyDefinition& definition, BattleType bat
 }
 }
 
+// 전투 유형·경로·층을 조건으로 후보를 필터링해 무작위로 적을 생성한다.
+// 경로 일치 후보가 없으면 경로를 무시하고 재시도하며, 그래도 없으면 기본 슬라임을 반환한다.
 Enemy EnemyFactory::Create(BattleType battleType, PathChoice path, int floor) const
 {
     std::vector<const EnemyDefinition*> candidates;
